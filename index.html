@@ -53,6 +53,14 @@
       <p class="note">GM: Nutze deine GM-PIN für vollen Zugriff.<br>Spieler: Nutze die PIN, die dir dein GM gegeben hat.</p>
     </div>
     <a href="#" onclick="showSetupScreen();return false;" style="font-size:12px">Neue Kampagne einrichten</a>
+    <div class="box panel" style="margin-top:6px">
+      <div class="panel-title" style="margin-bottom:8px;border:none;padding-bottom:0">Ohne eigene Datenbank ausprobieren</div>
+      <p class="note" style="margin-top:0;margin-bottom:10px">Demo-Modus mit vorgefertigten Charakteren, läuft rein lokal in diesem Browser — keine Datenbank nötig.</p>
+      <div style="display:flex;gap:8px">
+        <button class="btn" style="flex:1" onclick="startDemoMode('gm')">Demo: Spielleiter</button>
+        <button class="btn" style="flex:1" onclick="startDemoMode('player')">Demo: Spieler</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -64,7 +72,9 @@
       <div class="campaign-name" id="header-campaign-name">Campaign</div>
     </div>
     <div class="session-info">
+      <span class="role-badge hidden" id="demo-badge" style="color:var(--red-bright);border-color:var(--red-bright)">DEMO</span>
       <span class="role-badge" id="header-role-badge">—</span>
+      <button class="btn small hidden" id="demo-reset-btn" onclick="resetDemoState()">Demo zurücksetzen</button>
       <button class="btn small" onclick="doLogout()">Abmelden</button>
     </div>
   </header>
@@ -93,6 +103,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 <script src="js/state.js"></script>
+<script src="js/demo.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/characters.js"></script>
 <script src="js/combat.js"></script>

@@ -41,6 +41,8 @@ function showApp() {
     const c = state.characters[session.charId];
     badge.textContent = c ? c.name : 'Spieler';
   }
+  document.getElementById('demo-badge').classList.toggle('hidden', !demoMode);
+  document.getElementById('demo-reset-btn').classList.toggle('hidden', !demoMode);
   applyRoleGating();
 }
 
@@ -113,6 +115,7 @@ async function doLogin() {
 }
 
 function doLogout() {
+  if (demoMode) { exitDemoMode(); return; }
   if (db) { try { db.ref(dbPath()).off(); } catch (e) {} }
   session = { role: null, charId: null };
   db = null;

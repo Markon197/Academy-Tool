@@ -8,6 +8,7 @@
 
 let db = null;
 let session = { role: null, charId: null }; // role: 'gm' | 'player'
+let demoMode = false; // true = no Firebase at all, state lives in localStorage only
 
 let state = {
   campaignName: 'Campaign',
@@ -24,6 +25,18 @@ const stateListeners = new Set(); // functions called after every sync
 function onStateChange(fn) { stateListeners.add(fn); }
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+// ── path helper shared by the demo-mode write path below ──
+function setPath(obj, path, val) {
+  const parts = path.split('/');
+  let cur = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (cur[parts[i]] == null || typeof cur[parts[i]] !== 'object') cur[parts[i]] = {};
+    cur = cur[parts[i]];
+  }
+  if (val === null) delete cur[parts[parts.length - 1]];
+  else cur[parts[parts.length - 1]] = val;
+}
 
 function initFirebase(dbUrl) {
   try {
@@ -42,10 +55,15 @@ async function dbRead() {
 }
 
 async function dbWrite(path, val) {
+  if (demoMode) { setPath(state, path, val); saveDemoState(); renderAll(); return; }
   await db.ref(dbPath() + '/' + path).set(val);
 }
 
 async function dbUpdate(updates) {
+  if (demoMode) {
+    for (const [k, v] of Object.entries(updates)) setPath(state, k, v);
+    saveDemoState(); renderAll(); return;
+  }
   const prefixed = {};
   for (const [k, v] of Object.entries(updates)) prefixed[dbPath() + '/' + k] = v;
   await db.ref('/').update(prefixed);
