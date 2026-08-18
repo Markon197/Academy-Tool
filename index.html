@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Academy Tool // Charakter & Kampf-Tracker</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ═══════════════ AUTH: SETUP (first time on this device) ═══════════════ -->
+<div id="setup-screen" class="hidden">
+  <div id="auth-screen">
+    <div class="banner">ACADEMY TOOL</div>
+    <div class="subtitle">Ersteinrichtung — Datenbank & GM-PIN festlegen</div>
+    <div class="box panel">
+      <div class="field">
+        <label>Kampagnenname</label>
+        <input type="text" id="setup-campaign-name" placeholder="z.B. Die Akademie von Ashveil">
+      </div>
+      <div class="field">
+        <label>Firebase Realtime Database URL</label>
+        <input type="text" id="setup-db-url" placeholder="https://dein-projekt-default-rtdb.firebaseio.com">
+      </div>
+      <div class="field">
+        <label>GM-PIN (4–8 Zeichen)</label>
+        <input type="password" id="setup-gm-pin" placeholder="Eigene GM-PIN wählen" maxlength="8">
+      </div>
+      <button class="btn primary" style="width:100%" onclick="doSetup()">Einrichten</button>
+      <div class="error-msg" id="setup-error"></div>
+      <p class="note">Diese Datenbank-URL wird nur auf diesem Gerät gespeichert. Alle Spieler verbinden sich später über die gleiche URL + ihre eigene PIN.</p>
+    </div>
+    <a href="#" onclick="showLoginScreen();return false;" style="font-size:12px">Ich habe schon eine Datenbank-URL &rarr; zum Login</a>
+  </div>
+</div>
+
+<!-- ═══════════════ AUTH: LOGIN ═══════════════ -->
+<div id="login-screen" class="hidden">
+  <div id="auth-screen">
+    <div class="banner">ACADEMY TOOL</div>
+    <div class="subtitle" id="login-campaign-name">Verbindung herstellen</div>
+    <div class="box panel">
+      <div class="field hidden" id="login-db-url-field">
+        <label>Datenbank-URL</label>
+        <input type="text" id="login-db-url" placeholder="https://dein-projekt-default-rtdb.firebaseio.com">
+      </div>
+      <div class="field">
+        <label>PIN</label>
+        <input type="password" id="login-pin" placeholder="Deine PIN" maxlength="8" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button class="btn primary" style="width:100%" onclick="doLogin()">Verbinden</button>
+      <div class="error-msg" id="login-error"></div>
+      <p class="note">GM: Nutze deine GM-PIN für vollen Zugriff.<br>Spieler: Nutze die PIN, die dir dein GM gegeben hat.</p>
+    </div>
+    <a href="#" onclick="showSetupScreen();return false;" style="font-size:12px">Neue Kampagne einrichten</a>
+  </div>
+</div>
+
+<!-- ═══════════════ MAIN APP ═══════════════ -->
+<div id="app-root" class="hidden">
+  <header id="app-header">
+    <div>
+      <div class="title">ACADEMY TOOL</div>
+      <div class="campaign-name" id="header-campaign-name">Campaign</div>
+    </div>
+    <div class="session-info">
+      <span class="role-badge" id="header-role-badge">—</span>
+      <button class="btn small" onclick="doLogout()">Abmelden</button>
+    </div>
+  </header>
+
+  <nav id="tabs">
+    <button data-view="view-characters" onclick="switchView('view-characters')">Charaktere</button>
+    <button data-view="view-combat" onclick="switchView('view-combat')">Kampf</button>
+    <button data-view="view-talents" onclick="switchView('view-talents')">Talente</button>
+  </nav>
+
+  <main>
+    <div id="view-characters" class="view">
+      <div id="characters-root"></div>
+    </div>
+    <div id="view-combat" class="view">
+      <div id="combat-root"></div>
+    </div>
+    <div id="view-talents" class="view">
+      <div id="talents-root"></div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+<script src="js/state.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/characters.js"></script>
+<script src="js/combat.js"></script>
+<script src="js/talents.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
