@@ -14,8 +14,10 @@ let state = {
   campaignName: 'Campaign',
   gmPin: null,
   characters: {},   // id -> character
-  teachers: {},      // id -> teacher
-  talents: {},       // id -> talent
+  professors: {},    // id -> professor (Pillar mentors)
+  clubs: {},         // id -> club/extracurricular (membership + one signature ability)
+  talents: {},       // id -> general, level-gated talent
+  skills: {},        // id -> origin-bound technique (professor or club)
   combat: { active: false, round: 1, currentTurn: 0, order: [] }, // order: [characterId]
 };
 
@@ -79,8 +81,10 @@ function startSync() {
     state.campaignName = data.campaignName || 'Campaign';
     state.gmPin = data.gmPin || null;
     state.characters = data.characters || {};
-    state.teachers = data.teachers || {};
+    state.professors = data.professors || {};
+    state.clubs = data.clubs || {};
     state.talents = data.talents || {};
+    state.skills = data.skills || {};
     state.combat = data.combat || { active: false, round: 1, currentTurn: 0, order: [] };
     stateListeners.forEach(fn => { try { fn(); } catch (e) { console.error(e); } });
   });

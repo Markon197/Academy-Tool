@@ -78,11 +78,21 @@ function combatCardHtml(c, i, isGM) {
         ${(c.stats || []).length ? `<div style="margin-bottom:6px">${c.stats.map(s => `<span class="tag on-card">${escapeHtml(s.key)}: ${escapeHtml(s.value)}</span>`).join('')}</div>` : ''}
         <div class="sub" style="font-weight:bold;margin-bottom:2px">Fähigkeiten</div>
         <div style="font-size:12px;white-space:pre-wrap;margin-bottom:8px">${escapeHtml(c.abilitiesNotes) || '—'}</div>
+        ${combatSkillsHtml(c)}
         <div class="sub" style="font-weight:bold;margin-bottom:2px">Waffen & Ausrüstung</div>
         ${(c.inventory || []).length ? c.inventory.map(it => `<div style="font-size:12px;margin-bottom:3px"><strong>${escapeHtml(it.name)}</strong>${it.description ? ' — ' + escapeHtml(it.description) : ''}</div>`).join('') : '<div class="sub">—</div>'}
       </div>
     </div>
   </div>`;
+}
+
+function combatSkillsHtml(c) {
+  const taken = (c.skillIds || []).map(id => state.skills[id]).filter(Boolean);
+  if (!taken.length) return '';
+  return `
+  <div class="sub" style="font-weight:bold;margin-bottom:2px">Skills / Techniques</div>
+  ${taken.map(s => `<div style="font-size:12px;margin-bottom:3px"><strong>${escapeHtml(s.name)}</strong>${s.cooldownCost ? ` <span class="sub">(${escapeHtml(s.cooldownCost)})</span>` : ''}${s.roll ? ` — <em>${escapeHtml(s.roll)}</em>` : ''}${s.effect ? ` — ${escapeHtml(s.effect)}` : ''}</div>`).join('')}
+  `;
 }
 
 async function applyDelta(charId, field, delta) {

@@ -69,8 +69,10 @@ async function doSetup() {
       campaignName,
       gmPin: btoa(pin),
       characters: {},
-      teachers: {},
+      professors: {},
+      clubs: {},
       talents: {},
+      skills: {},
       combat: { active: false, round: 1, currentTurn: 0, order: [] },
     });
     localStorage.setItem('academy_db_url', url);

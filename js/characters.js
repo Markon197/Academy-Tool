@@ -14,7 +14,8 @@ function blankCharacter(isNPC) {
   return {
     id: uid(), name: '', isNPC, level: 1,
     hp: 10, maxHp: 10, mana: 5, maxMana: 5,
-    stats: [], teacherIds: [], talentIds: [], unlockedTeacherTalentIds: [],
+    stats: [], professorIds: [], clubIds: [],
+    talentRanks: {}, skillIds: [], unlockedIds: [],
     inventory: [], abilitiesNotes: '', pin: '',
   };
 }
@@ -120,9 +121,13 @@ async function deleteCharacter(id) {
 //    input keeps focus while typing) ──
 function draftSet(field, value) { editingDraft[field] = value; }
 function draftSetNum(field, value) { editingDraft[field] = Number(value) || 0; }
-function draftToggleTeacher(teacherId) {
-  const i = editingDraft.teacherIds.indexOf(teacherId);
-  if (i === -1) editingDraft.teacherIds.push(teacherId); else editingDraft.teacherIds.splice(i, 1);
+function draftToggleProfessor(professorId) {
+  const i = editingDraft.professorIds.indexOf(professorId);
+  if (i === -1) editingDraft.professorIds.push(professorId); else editingDraft.professorIds.splice(i, 1);
+}
+function draftToggleClub(clubId) {
+  const i = editingDraft.clubIds.indexOf(clubId);
+  if (i === -1) editingDraft.clubIds.push(clubId); else editingDraft.clubIds.splice(i, 1);
 }
 
 function addStatRow() { editingDraft.stats.push({ key: '', value: '' }); renderCharacters(); }
@@ -131,7 +136,8 @@ function statSet(i, field, value) { editingDraft.stats[i][field] = value; }
 
 function characterEditorHtml() {
   const d = editingDraft;
-  const teacherOptions = Object.values(state.teachers).sort((a, b) => a.name.localeCompare(b.name));
+  const professorOptions = Object.values(state.professors).sort((a, b) => a.name.localeCompare(b.name));
+  const clubOptions = Object.values(state.clubs).sort((a, b) => a.name.localeCompare(b.name));
   return `
   <div class="panel" id="editor-panel">
     <div class="panel-title">
@@ -155,11 +161,19 @@ function characterEditorHtml() {
           ${!d.isNPC ? `<div class="field"><label>Spieler-PIN</label><input type="text" maxlength="8" value="${escapeAttr(d.pin)}" oninput="draftSet('pin',this.value)"></div>` : ''}
         </div>
         <div class="field">
-          <label>Lehrer / Schwerpunkte (2–3)</label>
-          <div>${teacherOptions.length ? teacherOptions.map(t => `
+          <label>Professoren / Schwerpunkte (2–3)</label>
+          <div>${professorOptions.length ? professorOptions.map(p => `
             <label style="display:inline-flex;align-items:center;gap:4px;width:auto;text-transform:none;font-size:12px;margin-right:12px">
-              <input type="checkbox" style="width:auto" ${d.teacherIds.includes(t.id) ? 'checked' : ''} onchange="draftToggleTeacher('${t.id}')"> ${escapeHtml(t.name)}
-            </label>`).join('') : '<span class="note">Noch keine Lehrer angelegt (siehe Talente-Tab).</span>'}
+              <input type="checkbox" style="width:auto" ${d.professorIds.includes(p.id) ? 'checked' : ''} onchange="draftToggleProfessor('${p.id}')"> ${escapeHtml(p.name)}
+            </label>`).join('') : '<span class="note">Noch keine Professoren angelegt (siehe Talente-Tab).</span>'}
+          </div>
+        </div>
+        <div class="field">
+          <label>Clubs / Extracurricular</label>
+          <div>${clubOptions.length ? clubOptions.map(cl => `
+            <label style="display:inline-flex;align-items:center;gap:4px;width:auto;text-transform:none;font-size:12px;margin-right:12px">
+              <input type="checkbox" style="width:auto" ${d.clubIds.includes(cl.id) ? 'checked' : ''} onchange="draftToggleClub('${cl.id}')"> ${escapeHtml(cl.name)}
+            </label>`).join('') : '<span class="note">Noch keine Clubs angelegt (siehe Talente-Tab).</span>'}
           </div>
         </div>
       </div>

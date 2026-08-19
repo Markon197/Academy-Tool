@@ -1,19 +1,28 @@
 // ═══════════════════════════════════════════════════════════════
 // TALENTMODUL
-// Zwei Talent-Arten:
-//  - "general": ans Charakterlevel gekoppelt, automatisch verfügbar sobald
-//    Level erreicht ist.
-//  - "teacher": an einen Lehrer gebunden, wird an narrativen Momenten vom
-//    GM manuell pro Charakter freigeschaltet.
-// Zweck für Spieler: selbstständig alle für sie in Frage kommenden Talente
-// durchlesen können, ohne dass der GM sie live vorliest. Nicht freigeschaltete
-// Lehrer-Talente sind für Spieler unsichtbar (nicht nur ausgegraut).
-// GM hat volle Kontrolle: Lehrer/Talente anlegen, pro Charakter freischalten.
+// Drei Content-Typen, passend zum echten Regelwerk (The Last Curriculum):
+//  - "Talents": allgemeine, reine Level-Talente (kein Origin nötig), können
+//    mehrstufig sein (z.B. Level 4/8/12 = Rang I/II/III, stapelnd).
+//  - "Skills": an einen Origin (Professor-Disziplin ODER Club) gebundene
+//    Techniken, zusätzlich levelgated. Origin ist Freitext (kein starres
+//    Fremdschlüssel-Feld, da echte Daten Clubs/Professoren/Items mischen).
+//  - "Clubs": Extracurricular-Mitgliedschaft, gibt genau eine Signature-
+//    Fähigkeit (Freitext) + optional einen betreuenden Professor.
+// "Professoren" sind eigene NPC-Entitäten mit Flavor (Quote/Oath/Rules) und
+// einem GM-only Geheimnis-Feld (secretNotes), das erst nach globalem Reveal
+// sichtbar wird.
+// "Secret" ist ein GM-Freischalt-Flag, das auf JEDEM der drei Content-Typen
+// existieren kann (nicht nur auf Origin-gebundenen wie vorher) — bei Bedarf
+// pro Charakter über character.unlockedIds freigeschaltet.
+// Zweck für Spieler: selbstständig alle für sie in Frage kommenden Inhalte
+// durchlesen können, ohne dass der GM sie live vorliest.
 // ═══════════════════════════════════════════════════════════════
 
-let talentSubView = 'talents'; // 'teachers' | 'talents' | 'unlocks'
-let teacherFormDraft = null;
+let talentSubView = 'talents'; // 'talents' | 'skills' | 'professors' | 'clubs' | 'unlocks'
 let talentFormDraft = null;
+let skillFormDraft = null;
+let professorFormDraft = null;
+let clubFormDraft = null;
 let unlockCharId = null;
 
 function renderTalents() {
@@ -22,82 +31,129 @@ function renderTalents() {
   root.innerHTML = session.role === 'player' ? renderPlayerTalents() : renderGMTalents();
 }
 
-// ── Player: read-only browse ──
+// ── shared helpers ──
+function eligibleRanks(talent, level) {
+  return (talent.levelRequirements && talent.levelRequirements.length ? talent.levelRequirements : [1])
+    .filter(l => level >= l).length;
+}
+function wordStems(name) {
+  return (name || '').toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length >= 3).map(w => w.slice(0, 4));
+}
+// Heuristic: a Skill's free-text "origin" is matched against the names of the
+// character's assigned professors/clubs (word-stem substring match) — there's
+// no strict foreign key between them since real origins mix clubs/professors/
+// items freely. Secret skills bypass this and use the unlock list instead.
+function characterHasAccessToOrigin(character, originText) {
+  if (!originText) return true;
+  const text = originText.toLowerCase();
+  const names = [
+    ...(character.professorIds || []).map(id => state.professors[id]?.name),
+    ...(character.clubIds || []).map(id => state.clubs[id]?.name),
+  ].filter(Boolean);
+  for (const name of names) {
+    for (const stem of wordStems(name)) { if (text.includes(stem)) return true; }
+  }
+  return false;
+}
+
+// ═══════════════════ PLAYER VIEW ═══════════════════
 function renderPlayerTalents() {
   const c = state.characters[session.charId];
   if (!c) return '<div class="empty-state">Kein Charakter gefunden.</div>';
+  const unlocked = c.unlockedIds || [];
+  const ranks = c.talentRanks || {};
+  const skillIds = c.skillIds || [];
 
-  const general = Object.values(state.talents)
-    .filter(t => t.category === 'general' && (t.levelRequirement || 1) <= c.level)
-    .sort((a, b) => (a.levelRequirement || 1) - (b.levelRequirement || 1));
+  const talents = Object.values(state.talents)
+    .filter(t => eligibleRanks(t, c.level) >= 1)
+    .filter(t => !t.secret || unlocked.includes(t.id))
+    .sort((a, b) => (a.levelRequirements?.[0] || 1) - (b.levelRequirements?.[0] || 1));
 
-  const teacherIds = c.teacherIds || [];
-  const unlocked = c.unlockedTeacherTalentIds || [];
-  const taken = c.talentIds || [];
+  const skills = Object.values(state.skills)
+    .filter(s => c.level >= (s.levelRequirement || 0))
+    .filter(s => s.secret ? unlocked.includes(s.id) : characterHasAccessToOrigin(c, s.origin))
+    .sort((a, b) => (a.origin || '').localeCompare(b.origin || ''));
 
   let html = `<div class="panel"><div class="panel-title">Allgemeine Talente (Level ${c.level})</div>
-    ${general.length ? general.map(t => talentCardHtml(t, taken.includes(t.id))).join('') : '<div class="empty-state">Keine allgemeinen Talente für dein Level verfügbar.</div>'}
+    ${talents.length ? talents.map(t => talentCardHtml(t, ranks[t.id] || 0, eligibleRanks(t, c.level))).join('') : '<div class="empty-state">Keine allgemeinen Talente für dein Level verfügbar.</div>'}
   </div>`;
 
-  teacherIds.forEach(tid => {
-    const teacher = state.teachers[tid];
-    if (!teacher) return;
-    const talents = Object.values(state.talents).filter(t => t.category === 'teacher' && t.teacherId === tid && unlocked.includes(t.id));
-    html += `<div class="panel"><div class="panel-title">${escapeHtml(teacher.name)}</div>
-      ${teacher.description ? `<p class="note" style="margin-bottom:10px">${escapeHtml(teacher.description)}</p>` : ''}
-      ${talents.length ? talents.map(t => talentCardHtml(t, taken.includes(t.id))).join('') : '<div class="empty-state">Dein GM hat hier noch keine Talente freigeschaltet.</div>'}
+  html += `<div class="panel"><div class="panel-title">Skills / Techniques</div>
+    ${skills.length ? skills.map(s => skillCardHtml(s, skillIds.includes(s.id))).join('') : '<div class="empty-state">Noch keine Skills verfügbar — brauchst Zugang über einen Professor oder Club.</div>'}
+  </div>`;
+
+  (c.clubIds || []).forEach(cid => {
+    const club = state.clubs[cid];
+    if (!club) return;
+    const clubHidden = club.secret && !unlocked.includes(club.id);
+    html += `<div class="panel"><div class="panel-title">${escapeHtml(club.name)}</div>
+      ${club.whatYouDo ? `<p class="note" style="margin-bottom:8px">${escapeHtml(club.whatYouDo)}</p>` : ''}
+      ${clubHidden ? '<div class="empty-state">Dein GM hat die Fähigkeit dieses Clubs noch nicht enthüllt.</div>' : `<div class="card"><strong>Signature-Fähigkeit</strong><p style="margin-top:4px">${escapeHtml(club.unlockableText) || '—'}</p></div>`}
     </div>`;
   });
 
-  if (!teacherIds.length) html += '<div class="note">Dir sind noch keine Lehrer zugewiesen — das macht dein GM im Charaktermodul.</div>';
+  (c.professorIds || []).forEach(pid => {
+    const p = state.professors[pid];
+    if (!p) return;
+    html += `<div class="panel"><div class="panel-title">${escapeHtml(p.name)}${p.pillar ? ` <span class="tag">${escapeHtml(p.pillar)}</span>` : ''}</div>
+      ${p.titleRole ? `<p class="sub" style="margin-bottom:6px">${escapeHtml(p.titleRole)}</p>` : ''}
+      ${p.description ? `<p style="margin-bottom:6px">${escapeHtml(p.description)}</p>` : ''}
+      ${p.quote ? `<p style="font-style:italic;color:var(--text2);margin-bottom:6px">${escapeHtml(p.quote)}</p>` : ''}
+      ${p.oath ? `<p style="margin-bottom:6px"><strong>Oath:</strong> ${escapeHtml(p.oath)}</p>` : ''}
+      ${p.tableRules ? `<p style="margin-bottom:6px"><strong>Regeln am Tisch:</strong> ${escapeHtml(p.tableRules)}</p>` : ''}
+      ${p.secretRevealed && p.secretNotes ? `<div class="card"><strong>Enthüllt</strong><p style="margin-top:4px;white-space:pre-wrap">${escapeHtml(p.secretNotes)}</p></div>` : ''}
+    </div>`;
+  });
+
+  if (!(c.professorIds || []).length && !(c.clubIds || []).length) {
+    html += '<div class="note">Dir sind noch keine Professoren oder Clubs zugewiesen — das macht dein GM im Charaktermodul.</div>';
+  }
   return html;
 }
 
-function talentCardHtml(t, taken) {
-  const teacher = t.teacherId ? state.teachers[t.teacherId] : null;
+function talentCardHtml(t, currentRanks, maxRanks) {
+  const thresholds = (t.levelRequirements && t.levelRequirements.length ? t.levelRequirements : [1]);
+  const rankLabel = thresholds.length > 1 ? `Level ${thresholds.join(' / ')} · Rang ${currentRanks}/${thresholds.length}` : `ab Level ${thresholds[0]}`;
   return `
-  <div class="card talent-card ${taken ? 'taken' : ''}">
-    <div class="badge ${t.category}">${t.category === 'general' ? `Allgemein · ab Level ${t.levelRequirement || 1}` : `Lehrer-Talent${teacher ? ' · ' + escapeHtml(teacher.name) : ''}`}</div>
-    <h3>${escapeHtml(t.name)} ${taken ? '<span class="tag on-card">✓ genommen</span>' : ''}</h3>
+  <div class="card talent-card ${currentRanks > 0 ? 'taken' : ''}">
+    <div class="badge general">${escapeHtml(t.type) || 'Talent'} · ${rankLabel}</div>
+    <h3>${escapeHtml(t.name)} ${currentRanks > 0 ? `<span class="tag on-card">✓ ${thresholds.length > 1 ? currentRanks + ' Rang(e)' : 'genommen'}</span>` : ''}</h3>
     <p style="margin-top:4px;white-space:pre-wrap">${escapeHtml(t.description) || '—'}</p>
   </div>`;
 }
 
-// ── GM: manage teachers, talents, per-character unlocks ──
+function skillCardHtml(s, taken) {
+  return `
+  <div class="card talent-card ${taken ? 'taken' : ''}">
+    <div class="badge teacher">${escapeHtml(s.origin) || 'Origin'} · ab Level ${s.levelRequirement || 0}${s.cooldownCost ? ' · ' + escapeHtml(s.cooldownCost) : ''}</div>
+    <h3>${escapeHtml(s.name)} ${taken ? '<span class="tag on-card">✓ gelernt</span>' : ''}</h3>
+    ${s.roll ? `<p class="sub" style="margin-top:4px">Roll: ${escapeHtml(s.roll)}</p>` : ''}
+    <p style="margin-top:4px;white-space:pre-wrap">${escapeHtml(s.effect) || '—'}</p>
+  </div>`;
+}
+
+// ═══════════════════ GM VIEW ═══════════════════
 function renderGMTalents() {
   return `
-  <nav id="tabs" style="padding:0 0 0 0;margin-bottom:14px;border:none">
-    <button class="${talentSubView === 'talents' ? 'active' : ''}" onclick="talentSubView='talents';renderTalents()">Talente</button>
-    <button class="${talentSubView === 'teachers' ? 'active' : ''}" onclick="talentSubView='teachers';renderTalents()">Lehrer</button>
-    <button class="${talentSubView === 'unlocks' ? 'active' : ''}" onclick="talentSubView='unlocks';renderTalents()">Freischaltungen</button>
-  </nav>
-  ${talentSubView === 'teachers' ? renderTeachersAdmin() : talentSubView === 'talents' ? renderTalentsAdmin() : renderUnlocksAdmin()}
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+    <nav id="tabs" style="padding:0;margin:0;border:none">
+      <button class="${talentSubView === 'talents' ? 'active' : ''}" onclick="talentSubView='talents';renderTalents()">Talente</button>
+      <button class="${talentSubView === 'skills' ? 'active' : ''}" onclick="talentSubView='skills';renderTalents()">Skills</button>
+      <button class="${talentSubView === 'professors' ? 'active' : ''}" onclick="talentSubView='professors';renderTalents()">Professoren</button>
+      <button class="${talentSubView === 'clubs' ? 'active' : ''}" onclick="talentSubView='clubs';renderTalents()">Clubs</button>
+      <button class="${talentSubView === 'unlocks' ? 'active' : ''}" onclick="talentSubView='unlocks';renderTalents()">Freischaltungen</button>
+    </nav>
+    <button class="btn small" onclick="importCurriculum()">📥 Regelwerk importieren</button>
+  </div>
+  ${talentSubView === 'skills' ? renderSkillsAdmin()
+    : talentSubView === 'professors' ? renderProfessorsAdmin()
+    : talentSubView === 'clubs' ? renderClubsAdmin()
+    : talentSubView === 'unlocks' ? renderUnlocksAdmin()
+    : renderTalentsAdmin()}
   `;
 }
 
-function renderTeachersAdmin() {
-  const list = Object.values(state.teachers).sort((a, b) => a.name.localeCompare(b.name));
-  return `
-  <div class="panel">
-    <div class="panel-title">Lehrer <button class="btn small" onclick="openTeacherForm(null)">+ Neuer Lehrer</button></div>
-    ${list.length ? list.map(t => `
-      <div class="roster-item">
-        <div><div class="name">${escapeHtml(t.name)}</div><div class="meta">${escapeHtml(t.description) || '—'}</div></div>
-        <div style="display:flex;gap:4px">
-          <button class="icon-btn" onclick="openTeacherForm('${t.id}')">✎</button>
-          <button class="icon-btn" onclick="deleteTeacher('${t.id}')">✕</button>
-        </div>
-      </div>`).join('') : '<div class="empty-state">Noch keine Lehrer angelegt.</div>'}
-  </div>
-  ${teacherFormDraft ? `
-  <div class="panel">
-    <div class="panel-title">${teacherFormDraft.id ? 'Lehrer bearbeiten' : 'Neuer Lehrer'}</div>
-    <div class="field"><label>Name</label><input type="text" value="${escapeAttr(teacherFormDraft.name)}" oninput="teacherFormDraft.name=this.value"></div>
-    <div class="field"><label>Beschreibung</label><textarea oninput="teacherFormDraft.description=this.value">${escapeHtml(teacherFormDraft.description)}</textarea></div>
-    <div style="display:flex;gap:8px"><button class="btn primary" onclick="saveTeacherForm()">Speichern</button><button class="btn" onclick="cancelTeacherForm()">Abbrechen</button></div>
-  </div>` : ''}`;
-}
-
+// ── Talente admin ──
 function renderTalentsAdmin() {
   const list = Object.values(state.talents).sort((a, b) => a.name.localeCompare(b.name));
   return `
@@ -105,7 +161,7 @@ function renderTalentsAdmin() {
     <div class="panel-title">Talente <button class="btn small" onclick="openTalentForm(null)">+ Neues Talent</button></div>
     ${list.length ? list.map(t => `
       <div class="roster-item">
-        <div><div class="name">${escapeHtml(t.name)} <span class="tag">${t.category === 'general' ? 'Allgemein Lvl ' + (t.levelRequirement || 1) : (state.teachers[t.teacherId]?.name || 'Lehrer')}</span></div>
+        <div><div class="name">${escapeHtml(t.name)} <span class="tag">${escapeHtml(t.type) || '—'}</span> <span class="tag">Lvl ${(t.levelRequirements || [1]).join('/')}</span>${t.secret ? ' <span class="tag">🔒 secret</span>' : ''}</div>
         <div class="meta">${escapeHtml(t.description) || '—'}</div></div>
         <div style="display:flex;gap:4px">
           <button class="icon-btn" onclick="openTalentForm('${t.id}')">✎</button>
@@ -118,23 +174,191 @@ function renderTalentsAdmin() {
     <div class="panel-title">${talentFormDraft.id ? 'Talent bearbeiten' : 'Neues Talent'}</div>
     <div class="field"><label>Name</label><input type="text" value="${escapeAttr(talentFormDraft.name)}" oninput="talentFormDraft.name=this.value"></div>
     <div class="field"><label>Beschreibung</label><textarea oninput="talentFormDraft.description=this.value">${escapeHtml(talentFormDraft.description)}</textarea></div>
-    <div class="field">
-      <label>Art</label>
-      <select onchange="talentFormDraft.category=this.value;renderTalents()">
-        <option value="general" ${talentFormDraft.category === 'general' ? 'selected' : ''}>Allgemein (levelgebunden)</option>
-        <option value="teacher" ${talentFormDraft.category === 'teacher' ? 'selected' : ''}>Lehrer-gebunden (GM schaltet frei)</option>
-      </select>
+    <div class="grid cols-3">
+      <div class="field"><label>Type (z.B. Fight, RP, Health...)</label><input type="text" value="${escapeAttr(talentFormDraft.type)}" oninput="talentFormDraft.type=this.value"></div>
+      <div class="field"><label>Level(s), z.B. "1" oder "4;8;12"</label><input type="text" value="${escapeAttr((talentFormDraft.levelRequirements||[1]).join(';'))}" oninput="talentFormDraft.levelRequirementsRaw=this.value"></div>
+      <div class="field"><label style="display:flex;align-items:center;gap:6px;margin-top:18px"><input type="checkbox" style="width:auto" ${talentFormDraft.secret ? 'checked' : ''} onchange="talentFormDraft.secret=this.checked"> Secret (GM schaltet frei)</label></div>
     </div>
-    ${talentFormDraft.category === 'general'
-      ? `<div class="field"><label>Ab Level</label><input type="number" min="1" value="${talentFormDraft.levelRequirement || 1}" oninput="talentFormDraft.levelRequirement=Number(this.value)"></div>`
-      : `<div class="field"><label>Lehrer</label><select onchange="talentFormDraft.teacherId=this.value">
-          <option value="">— wählen —</option>
-          ${Object.values(state.teachers).map(t => `<option value="${t.id}" ${talentFormDraft.teacherId === t.id ? 'selected' : ''}>${escapeHtml(t.name)}</option>`).join('')}
-        </select></div>`}
     <div style="display:flex;gap:8px"><button class="btn primary" onclick="saveTalentForm()">Speichern</button><button class="btn" onclick="cancelTalentForm()">Abbrechen</button></div>
   </div>` : ''}`;
 }
 
+function openTalentForm(id) {
+  talentFormDraft = id ? { ...state.talents[id] } : { id: null, name: '', description: '', type: '', levelRequirements: [1], secret: false };
+  renderTalents();
+}
+function cancelTalentForm() { talentFormDraft = null; renderTalents(); }
+async function saveTalentForm() {
+  if (!talentFormDraft.name.trim()) { showToast('Name fehlt.'); return; }
+  const id = talentFormDraft.id || uid();
+  let levelRequirements = talentFormDraft.levelRequirements || [1];
+  if (talentFormDraft.levelRequirementsRaw !== undefined) {
+    const nums = talentFormDraft.levelRequirementsRaw.split(';').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+    levelRequirements = nums.length ? nums : [1];
+  }
+  const t = { id, name: talentFormDraft.name.trim(), description: talentFormDraft.description || '', type: talentFormDraft.type || '', levelRequirements, secret: !!talentFormDraft.secret };
+  await dbWrite('talents/' + id, t);
+  talentFormDraft = null; renderTalents(); showToast('Talent gespeichert.');
+}
+async function deleteTalent(id) {
+  if (!confirm('Talent wirklich löschen?')) return;
+  await dbWrite('talents/' + id, null);
+}
+
+// ── Skills admin ──
+function renderSkillsAdmin() {
+  const list = Object.values(state.skills).sort((a, b) => (a.origin || '').localeCompare(b.origin || '') || a.name.localeCompare(b.name));
+  return `
+  <div class="panel">
+    <div class="panel-title">Skills / Techniques <button class="btn small" onclick="openSkillForm(null)">+ Neuer Skill</button></div>
+    ${list.length ? list.map(s => `
+      <div class="roster-item">
+        <div><div class="name">${escapeHtml(s.name)} <span class="tag">${escapeHtml(s.origin) || '—'}</span> <span class="tag">Lvl ${s.levelRequirement || 0}</span>${s.secret ? ' <span class="tag">🔒 secret</span>' : ''}</div>
+        <div class="meta">${escapeHtml(s.effect) || '—'}</div></div>
+        <div style="display:flex;gap:4px">
+          <button class="icon-btn" onclick="openSkillForm('${s.id}')">✎</button>
+          <button class="icon-btn" onclick="deleteSkill('${s.id}')">✕</button>
+        </div>
+      </div>`).join('') : '<div class="empty-state">Noch keine Skills angelegt.</div>'}
+  </div>
+  ${skillFormDraft ? `
+  <div class="panel">
+    <div class="panel-title">${skillFormDraft.id ? 'Skill bearbeiten' : 'Neuer Skill'}</div>
+    <div class="field"><label>Name</label><input type="text" value="${escapeAttr(skillFormDraft.name)}" oninput="skillFormDraft.name=this.value"></div>
+    <div class="grid cols-3">
+      <div class="field"><label>Origin (Club/Professor)</label><input type="text" value="${escapeAttr(skillFormDraft.origin)}" oninput="skillFormDraft.origin=this.value"></div>
+      <div class="field"><label>Level</label><input type="number" min="0" value="${skillFormDraft.levelRequirement || 0}" oninput="skillFormDraft.levelRequirement=Number(this.value)"></div>
+      <div class="field"><label>Cooldown / Cost</label><input type="text" value="${escapeAttr(skillFormDraft.cooldownCost)}" oninput="skillFormDraft.cooldownCost=this.value"></div>
+    </div>
+    <div class="field"><label>Roll (Freitext, z.B. "Body + Force")</label><input type="text" value="${escapeAttr(skillFormDraft.roll)}" oninput="skillFormDraft.roll=this.value"></div>
+    <div class="field"><label>Effekt</label><textarea oninput="skillFormDraft.effect=this.value">${escapeHtml(skillFormDraft.effect)}</textarea></div>
+    <div class="field"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" style="width:auto" ${skillFormDraft.secret ? 'checked' : ''} onchange="skillFormDraft.secret=this.checked"> Secret (GM schaltet frei)</label></div>
+    <div style="display:flex;gap:8px"><button class="btn primary" onclick="saveSkillForm()">Speichern</button><button class="btn" onclick="cancelSkillForm()">Abbrechen</button></div>
+  </div>` : ''}`;
+}
+
+function openSkillForm(id) {
+  skillFormDraft = id ? { ...state.skills[id] } : { id: null, name: '', origin: '', cooldownCost: '', levelRequirement: 0, roll: '', effect: '', secret: false };
+  renderTalents();
+}
+function cancelSkillForm() { skillFormDraft = null; renderTalents(); }
+async function saveSkillForm() {
+  if (!skillFormDraft.name.trim()) { showToast('Name fehlt.'); return; }
+  const id = skillFormDraft.id || uid();
+  const sObj = { id, name: skillFormDraft.name.trim(), origin: skillFormDraft.origin || '', cooldownCost: skillFormDraft.cooldownCost || '', levelRequirement: Number(skillFormDraft.levelRequirement) || 0, roll: skillFormDraft.roll || '', effect: skillFormDraft.effect || '', secret: !!skillFormDraft.secret };
+  await dbWrite('skills/' + id, sObj);
+  skillFormDraft = null; renderTalents(); showToast('Skill gespeichert.');
+}
+async function deleteSkill(id) {
+  if (!confirm('Skill wirklich löschen?')) return;
+  await dbWrite('skills/' + id, null);
+}
+
+// ── Professoren admin ──
+function renderProfessorsAdmin() {
+  const list = Object.values(state.professors).sort((a, b) => a.name.localeCompare(b.name));
+  return `
+  <div class="panel">
+    <div class="panel-title">Professoren <button class="btn small" onclick="openProfessorForm(null)">+ Neuer Professor</button></div>
+    ${list.length ? list.map(p => `
+      <div class="roster-item">
+        <div><div class="name">${escapeHtml(p.name)} ${p.pillar ? `<span class="tag">${escapeHtml(p.pillar)}</span>` : ''}${p.secretNotes ? ` <span class="tag">${p.secretRevealed ? '👁 enthüllt' : '🔒 secret'}</span>` : ''}</div>
+        <div class="meta">${escapeHtml(p.titleRole) || '—'}</div></div>
+        <div style="display:flex;gap:4px">
+          <button class="icon-btn" onclick="openProfessorForm('${p.id}')">✎</button>
+          <button class="icon-btn" onclick="deleteProfessor('${p.id}')">✕</button>
+        </div>
+      </div>`).join('') : '<div class="empty-state">Noch keine Professoren angelegt.</div>'}
+  </div>
+  ${professorFormDraft ? `
+  <div class="panel">
+    <div class="panel-title">${professorFormDraft.id ? 'Professor bearbeiten' : 'Neuer Professor'}</div>
+    <div class="grid cols-2">
+      <div class="field"><label>Name</label><input type="text" value="${escapeAttr(professorFormDraft.name)}" oninput="professorFormDraft.name=this.value"></div>
+      <div class="field"><label>Pillar (BODY/MIND/SOUL...)</label><input type="text" value="${escapeAttr(professorFormDraft.pillar)}" oninput="professorFormDraft.pillar=this.value"></div>
+    </div>
+    <div class="field"><label>Title / Role</label><input type="text" value="${escapeAttr(professorFormDraft.titleRole)}" oninput="professorFormDraft.titleRole=this.value"></div>
+    <div class="field"><label>Beschreibung</label><textarea oninput="professorFormDraft.description=this.value">${escapeHtml(professorFormDraft.description)}</textarea></div>
+    <div class="field"><label>Quote</label><input type="text" value="${escapeAttr(professorFormDraft.quote)}" oninput="professorFormDraft.quote=this.value"></div>
+    <div class="field"><label>Oath</label><textarea oninput="professorFormDraft.oath=this.value">${escapeHtml(professorFormDraft.oath)}</textarea></div>
+    <div class="field"><label>Regeln am Tisch</label><textarea oninput="professorFormDraft.tableRules=this.value">${escapeHtml(professorFormDraft.tableRules)}</textarea></div>
+    <div class="field"><label>Vibe</label><input type="text" value="${escapeAttr(professorFormDraft.vibe)}" oninput="professorFormDraft.vibe=this.value"></div>
+    <div class="field"><label>GM-Geheimnis (secretNotes)</label><textarea oninput="professorFormDraft.secretNotes=this.value">${escapeHtml(professorFormDraft.secretNotes)}</textarea></div>
+    <div class="field"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" style="width:auto" ${professorFormDraft.secretRevealed ? 'checked' : ''} onchange="professorFormDraft.secretRevealed=this.checked"> Geheimnis bereits enthüllt (für alle Spieler sichtbar)</label></div>
+    <div style="display:flex;gap:8px"><button class="btn primary" onclick="saveProfessorForm()">Speichern</button><button class="btn" onclick="cancelProfessorForm()">Abbrechen</button></div>
+  </div>` : ''}`;
+}
+
+function openProfessorForm(id) {
+  professorFormDraft = id ? { ...state.professors[id] } : { id: null, name: '', pillar: '', titleRole: '', description: '', quote: '', oath: '', tableRules: '', vibe: '', secretNotes: '', secretRevealed: false };
+  renderTalents();
+}
+function cancelProfessorForm() { professorFormDraft = null; renderTalents(); }
+async function saveProfessorForm() {
+  if (!professorFormDraft.name.trim()) { showToast('Name fehlt.'); return; }
+  const id = professorFormDraft.id || uid();
+  const p = { id, name: professorFormDraft.name.trim(), pillar: professorFormDraft.pillar || '', titleRole: professorFormDraft.titleRole || '', description: professorFormDraft.description || '', quote: professorFormDraft.quote || '', oath: professorFormDraft.oath || '', tableRules: professorFormDraft.tableRules || '', vibe: professorFormDraft.vibe || '', secretNotes: professorFormDraft.secretNotes || '', secretRevealed: !!professorFormDraft.secretRevealed };
+  await dbWrite('professors/' + id, p);
+  professorFormDraft = null; renderTalents(); showToast('Professor gespeichert.');
+}
+async function deleteProfessor(id) {
+  if (!confirm('Professor wirklich löschen?')) return;
+  await dbWrite('professors/' + id, null);
+}
+
+// ── Clubs admin ──
+function renderClubsAdmin() {
+  const list = Object.values(state.clubs).sort((a, b) => a.name.localeCompare(b.name));
+  return `
+  <div class="panel">
+    <div class="panel-title">Clubs / Extracurricular <button class="btn small" onclick="openClubForm(null)">+ Neuer Club</button></div>
+    ${list.length ? list.map(c => `
+      <div class="roster-item">
+        <div><div class="name">${escapeHtml(c.name)}${c.professorId && state.professors[c.professorId] ? ` <span class="tag">${escapeHtml(state.professors[c.professorId].name)}</span>` : ''}${c.secret ? ' <span class="tag">🔒 secret</span>' : ''}</div>
+        <div class="meta">${escapeHtml(c.whatYouDo) || '—'}</div></div>
+        <div style="display:flex;gap:4px">
+          <button class="icon-btn" onclick="openClubForm('${c.id}')">✎</button>
+          <button class="icon-btn" onclick="deleteClub('${c.id}')">✕</button>
+        </div>
+      </div>`).join('') : '<div class="empty-state">Noch keine Clubs angelegt.</div>'}
+  </div>
+  ${clubFormDraft ? `
+  <div class="panel">
+    <div class="panel-title">${clubFormDraft.id ? 'Club bearbeiten' : 'Neuer Club'}</div>
+    <div class="field"><label>Name</label><input type="text" value="${escapeAttr(clubFormDraft.name)}" oninput="clubFormDraft.name=this.value"></div>
+    <div class="field"><label>Was man dort tut</label><textarea oninput="clubFormDraft.whatYouDo=this.value">${escapeHtml(clubFormDraft.whatYouDo)}</textarea></div>
+    <div class="field"><label>Signature-Fähigkeit (Unlockable, Freitext)</label><textarea oninput="clubFormDraft.unlockableText=this.value">${escapeHtml(clubFormDraft.unlockableText)}</textarea></div>
+    <div class="grid cols-2">
+      <div class="field"><label>Betreuender Professor</label>
+        <select onchange="clubFormDraft.professorId=this.value||null">
+          <option value="">— keiner —</option>
+          ${Object.values(state.professors).map(p => `<option value="${p.id}" ${clubFormDraft.professorId === p.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label style="display:flex;align-items:center;gap:6px;margin-top:18px"><input type="checkbox" style="width:auto" ${clubFormDraft.secret ? 'checked' : ''} onchange="clubFormDraft.secret=this.checked"> Secret (GM schaltet frei)</label></div>
+    </div>
+    <div style="display:flex;gap:8px"><button class="btn primary" onclick="saveClubForm()">Speichern</button><button class="btn" onclick="cancelClubForm()">Abbrechen</button></div>
+  </div>` : ''}`;
+}
+
+function openClubForm(id) {
+  clubFormDraft = id ? { ...state.clubs[id] } : { id: null, name: '', whatYouDo: '', unlockableText: '', professorId: null, secret: false };
+  renderTalents();
+}
+function cancelClubForm() { clubFormDraft = null; renderTalents(); }
+async function saveClubForm() {
+  if (!clubFormDraft.name.trim()) { showToast('Name fehlt.'); return; }
+  const id = clubFormDraft.id || uid();
+  const c = { id, name: clubFormDraft.name.trim(), whatYouDo: clubFormDraft.whatYouDo || '', unlockableText: clubFormDraft.unlockableText || '', professorId: clubFormDraft.professorId || null, secret: !!clubFormDraft.secret };
+  await dbWrite('clubs/' + id, c);
+  clubFormDraft = null; renderTalents(); showToast('Club gespeichert.');
+}
+async function deleteClub(id) {
+  if (!confirm('Club wirklich löschen?')) return;
+  await dbWrite('clubs/' + id, null);
+}
+
+// ── Freischaltungen admin ──
 function renderUnlocksAdmin() {
   const chars = Object.values(state.characters).sort((a, b) => a.name.localeCompare(b.name));
   let html = `
@@ -149,88 +373,92 @@ function renderUnlocksAdmin() {
   const c = unlockCharId ? state.characters[unlockCharId] : null;
   if (!c) return html;
 
-  const general = Object.values(state.talents).filter(t => t.category === 'general' && (t.levelRequirement || 1) <= c.level);
-  const taken = c.talentIds || [];
-  const unlocked = c.unlockedTeacherTalentIds || [];
+  const unlocked = c.unlockedIds || [];
+  const ranks = c.talentRanks || {};
+  const skillIds = c.skillIds || [];
+  const profNames = (c.professorIds || []).map(id => state.professors[id]?.name).filter(Boolean).join(', ') || '—';
+  const clubNames = (c.clubIds || []).map(id => state.clubs[id]?.name).filter(Boolean).join(', ') || '—';
 
-  html += `<div class="panel"><div class="panel-title">Allgemeine Talente (automatisch verfügbar, Level ${c.level})</div>
-    ${general.length ? general.map(t => `
+  html += `<div class="panel"><p class="note">Professoren: ${escapeHtml(profNames)} · Clubs: ${escapeHtml(clubNames)} (Zuweisung im Charaktermodul)</p></div>`;
+
+  const talentsList = Object.values(state.talents).sort((a, b) => a.name.localeCompare(b.name));
+  html += `<div class="panel"><div class="panel-title">Talente</div>
+    ${talentsList.length ? talentsList.map(t => {
+      const thresholds = t.levelRequirements && t.levelRequirements.length ? t.levelRequirements : [1];
+      const cur = ranks[t.id] || 0;
+      return `
       <div class="roster-item">
-        <div><div class="name">${escapeHtml(t.name)}</div><div class="meta">ab Level ${t.levelRequirement || 1}</div></div>
-        <label style="display:flex;align-items:center;gap:4px;width:auto;text-transform:none">
-          <input type="checkbox" style="width:auto" ${taken.includes(t.id) ? 'checked' : ''} onchange="toggleTaken('${c.id}','${t.id}')"> genommen
-        </label>
-      </div>`).join('') : '<div class="empty-state">Keine allgemeinen Talente für dieses Level.</div>'}
+        <div><div class="name">${escapeHtml(t.name)} <span class="tag">Lvl ${thresholds.join('/')}</span></div><div class="meta">${escapeHtml(t.description) || '—'}</div></div>
+        <div style="display:flex;gap:10px;align-items:center">
+          ${t.secret ? `<label style="display:flex;align-items:center;gap:4px;width:auto;text-transform:none"><input type="checkbox" style="width:auto" ${unlocked.includes(t.id) ? 'checked' : ''} onchange="toggleUnlock('${c.id}','${t.id}')"> freigeschaltet</label>` : ''}
+          <div style="display:flex;align-items:center;gap:4px">
+            <button class="icon-btn" onclick="adjustRank('${c.id}','${t.id}',-1)">−</button>
+            <span class="sub">${cur}/${thresholds.length} Rang(e)</span>
+            <button class="icon-btn" onclick="adjustRank('${c.id}','${t.id}',1,${thresholds.length})">+</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('') : '<div class="empty-state">Keine Talente angelegt.</div>'}
   </div>`;
 
-  (c.teacherIds || []).forEach(tid => {
-    const teacher = state.teachers[tid];
-    if (!teacher) return;
-    const talents = Object.values(state.talents).filter(t => t.category === 'teacher' && t.teacherId === tid);
-    html += `<div class="panel"><div class="panel-title">${escapeHtml(teacher.name)}</div>
-      ${talents.length ? talents.map(t => `
+  const skillsList = Object.values(state.skills).sort((a, b) => (a.origin || '').localeCompare(b.origin || ''));
+  html += `<div class="panel"><div class="panel-title">Skills</div>
+    ${skillsList.length ? skillsList.map(s => `
+      <div class="roster-item">
+        <div><div class="name">${escapeHtml(s.name)} <span class="tag">${escapeHtml(s.origin) || '—'}</span> <span class="tag">Lvl ${s.levelRequirement || 0}</span></div><div class="meta">${escapeHtml(s.effect) || '—'}</div></div>
+        <div style="display:flex;gap:14px">
+          ${s.secret ? `<label style="display:flex;align-items:center;gap:4px;width:auto;text-transform:none"><input type="checkbox" style="width:auto" ${unlocked.includes(s.id) ? 'checked' : ''} onchange="toggleUnlock('${c.id}','${s.id}')"> freigeschaltet</label>` : ''}
+          <label style="display:flex;align-items:center;gap:4px;width:auto;text-transform:none"><input type="checkbox" style="width:auto" ${skillIds.includes(s.id) ? 'checked' : ''} onchange="toggleSkillTaken('${c.id}','${s.id}')"> gelernt</label>
+        </div>
+      </div>`).join('') : '<div class="empty-state">Keine Skills angelegt.</div>'}
+  </div>`;
+
+  const secretClubs = (c.clubIds || []).map(id => state.clubs[id]).filter(cl => cl && cl.secret);
+  if (secretClubs.length) {
+    html += `<div class="panel"><div class="panel-title">Club-Geheimnisse</div>
+      ${secretClubs.map(cl => `
         <div class="roster-item">
-          <div><div class="name">${escapeHtml(t.name)}</div><div class="meta">${escapeHtml(t.description) || '—'}</div></div>
-          <div style="display:flex;gap:14px">
-            <label style="display:flex;align-items:center;gap:4px;width:auto;text-transform:none">
-              <input type="checkbox" style="width:auto" ${unlocked.includes(t.id) ? 'checked' : ''} onchange="toggleUnlock('${c.id}','${t.id}')"> freigeschaltet
-            </label>
-            <label style="display:flex;align-items:center;gap:4px;width:auto;text-transform:none">
-              <input type="checkbox" style="width:auto" ${taken.includes(t.id) ? 'checked' : ''} onchange="toggleTaken('${c.id}','${t.id}')"> genommen
-            </label>
-          </div>
-        </div>`).join('') : '<div class="empty-state">Keine Talente bei diesem Lehrer angelegt.</div>'}
+          <div class="name">${escapeHtml(cl.name)}</div>
+          <label style="display:flex;align-items:center;gap:4px;width:auto;text-transform:none"><input type="checkbox" style="width:auto" ${unlocked.includes(cl.id) ? 'checked' : ''} onchange="toggleUnlock('${c.id}','${cl.id}')"> freigeschaltet</label>
+        </div>`).join('')}
     </div>`;
-  });
-  if (!(c.teacherIds || []).length) html += '<div class="note">Diesem Charakter sind noch keine Lehrer zugewiesen (im Charaktermodul einstellbar).</div>';
+  }
 
   return html;
 }
 
-// ── Form helpers ──
-function openTeacherForm(id) { teacherFormDraft = id ? { ...state.teachers[id] } : { id: null, name: '', description: '' }; renderTalents(); }
-function cancelTeacherForm() { teacherFormDraft = null; renderTalents(); }
-async function saveTeacherForm() {
-  if (!teacherFormDraft.name.trim()) { showToast('Name fehlt.'); return; }
-  const id = teacherFormDraft.id || uid();
-  await dbWrite('teachers/' + id, { id, name: teacherFormDraft.name.trim(), description: teacherFormDraft.description || '' });
-  teacherFormDraft = null; renderTalents(); showToast('Lehrer gespeichert.');
+async function toggleUnlock(charId, itemId) {
+  const c = state.characters[charId];
+  const list = (c.unlockedIds || []).slice();
+  const i = list.indexOf(itemId);
+  if (i === -1) list.push(itemId); else list.splice(i, 1);
+  await dbWrite('characters/' + charId + '/unlockedIds', list);
 }
-async function deleteTeacher(id) {
-  if (!confirm('Lehrer wirklich löschen?')) return;
-  await dbWrite('teachers/' + id, null);
+async function toggleSkillTaken(charId, skillId) {
+  const c = state.characters[charId];
+  const list = (c.skillIds || []).slice();
+  const i = list.indexOf(skillId);
+  if (i === -1) list.push(skillId); else list.splice(i, 1);
+  await dbWrite('characters/' + charId + '/skillIds', list);
+}
+async function adjustRank(charId, talentId, delta, max) {
+  const c = state.characters[charId];
+  const ranks = { ...(c.talentRanks || {}) };
+  const next = Math.max(0, Math.min(max ?? 99, (ranks[talentId] || 0) + delta));
+  ranks[talentId] = next;
+  await dbWrite('characters/' + charId + '/talentRanks', ranks);
 }
 
-function openTalentForm(id) {
-  talentFormDraft = id ? { ...state.talents[id] } : { id: null, name: '', description: '', category: 'general', levelRequirement: 1, teacherId: '' };
-  renderTalents();
-}
-function cancelTalentForm() { talentFormDraft = null; renderTalents(); }
-async function saveTalentForm() {
-  if (!talentFormDraft.name.trim()) { showToast('Name fehlt.'); return; }
-  const id = talentFormDraft.id || uid();
-  const t = { id, name: talentFormDraft.name.trim(), description: talentFormDraft.description || '', category: talentFormDraft.category };
-  if (t.category === 'teacher') t.teacherId = talentFormDraft.teacherId || null;
-  else t.levelRequirement = Number(talentFormDraft.levelRequirement) || 1;
-  await dbWrite('talents/' + id, t);
-  talentFormDraft = null; renderTalents(); showToast('Talent gespeichert.');
-}
-async function deleteTalent(id) {
-  if (!confirm('Talent wirklich löschen?')) return;
-  await dbWrite('talents/' + id, null);
-}
-
-async function toggleUnlock(charId, talentId) {
-  const c = state.characters[charId];
-  const list = (c.unlockedTeacherTalentIds || []).slice();
-  const i = list.indexOf(talentId);
-  if (i === -1) list.push(talentId); else list.splice(i, 1);
-  await dbWrite('characters/' + charId + '/unlockedTeacherTalentIds', list);
-}
-async function toggleTaken(charId, talentId) {
-  const c = state.characters[charId];
-  const list = (c.talentIds || []).slice();
-  const i = list.indexOf(talentId);
-  if (i === -1) list.push(talentId); else list.splice(i, 1);
-  await dbWrite('characters/' + charId + '/talentIds', list);
+// ── Regelwerk-Import ──
+async function importCurriculum() {
+  if (typeof CURRICULUM_SEED === 'undefined') { showToast('Regelwerk-Daten (curriculum-seed.js) nicht gefunden.'); return; }
+  const n = CURRICULUM_SEED.talents.length + CURRICULUM_SEED.skills.length + CURRICULUM_SEED.professors.length + CURRICULUM_SEED.clubs.length;
+  if (!confirm(`${n} Einträge aus dem Regelwerk importieren (${CURRICULUM_SEED.talents.length} Talente, ${CURRICULUM_SEED.skills.length} Skills, ${CURRICULUM_SEED.professors.length} Professoren, ${CURRICULUM_SEED.clubs.length} Clubs)? Bestehende Charaktere bleiben unangetastet.`)) return;
+  const updates = {};
+  CURRICULUM_SEED.talents.forEach(t => { updates['talents/' + t.id] = t; });
+  CURRICULUM_SEED.skills.forEach(s => { updates['skills/' + s.id] = s; });
+  CURRICULUM_SEED.professors.forEach(p => { updates['professors/' + p.id] = p; });
+  CURRICULUM_SEED.clubs.forEach(c => { updates['clubs/' + c.id] = c; });
+  await dbUpdate(updates);
+  showToast(`Regelwerk importiert (${n} Einträge).`);
 }
