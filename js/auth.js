@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════
-// AUTH — setup (first run) + login (GM-PIN or per-character player PIN)
-// Same PIN pattern as CP_Phantom: GM-PIN unlocks everything, each PC can
+// AUTH — setup (first run) + login (GM PIN or per-character player PIN)
+// Same PIN pattern as CP_Phantom: GM PIN unlocks everything, each PC can
 // have its own player PIN that logs in read-only as that character.
 // Only the DB URL + campaign name are persisted locally; the PIN itself
 // is asked for again on every fresh page load.
@@ -21,7 +21,7 @@ function showLoginScreen() {
   const urlField = document.getElementById('login-db-url-field');
   if (savedUrl) {
     urlField.classList.add('hidden');
-    document.getElementById('login-campaign-name').textContent = savedName ? savedName.toUpperCase() : 'Verbindung herstellen';
+    document.getElementById('login-campaign-name').textContent = savedName ? savedName.toUpperCase() : 'Connect to a campaign';
   } else {
     urlField.classList.remove('hidden');
   }
@@ -36,10 +36,10 @@ function showApp() {
   document.getElementById('header-campaign-name').textContent = state.campaignName;
   const badge = document.getElementById('header-role-badge');
   if (session.role === 'gm') {
-    badge.textContent = 'Spielleiter';
+    badge.textContent = 'Game Master';
   } else {
     const c = state.characters[session.charId];
-    badge.textContent = c ? c.name : 'Spieler';
+    badge.textContent = c ? c.name : 'Player';
   }
   document.getElementById('demo-badge').classList.toggle('hidden', !demoMode);
   document.getElementById('demo-reset-btn').classList.toggle('hidden', !demoMode);
@@ -60,11 +60,11 @@ async function doSetup() {
   const campaignName = document.getElementById('setup-campaign-name').value.trim() || 'Campaign';
   const url = document.getElementById('setup-db-url').value.trim();
   const pin = document.getElementById('setup-gm-pin').value.trim();
-  if (!url || !pin) { err.textContent = 'Datenbank-URL und GM-PIN sind erforderlich.'; return; }
-  if (!initFirebase(url)) { err.textContent = 'Konnte keine Verbindung zur Datenbank herstellen.'; return; }
+  if (!url || !pin) { err.textContent = 'Database URL and GM PIN are required.'; return; }
+  if (!initFirebase(url)) { err.textContent = 'Could not connect to the database.'; return; }
   try {
     const existing = await dbRead();
-    if (existing) { err.textContent = 'Unter dieser URL existiert bereits eine Kampagne. Nutze stattdessen Login.'; return; }
+    if (existing) { err.textContent = 'A campaign already exists at this URL. Use Login instead.'; return; }
     await db.ref(dbPath()).set({
       campaignName,
       gmPin: btoa(pin),
@@ -82,7 +82,7 @@ async function doSetup() {
     setTimeout(() => { showApp(); renderAll(); }, 300);
   } catch (e) {
     console.error(e);
-    err.textContent = 'Einrichtung fehlgeschlagen: ' + e.message;
+    err.textContent = 'Setup failed: ' + e.message;
   }
 }
 
@@ -93,17 +93,17 @@ async function doLogin() {
   let url = localStorage.getItem('academy_db_url');
   const urlFieldVisible = !document.getElementById('login-db-url-field').classList.contains('hidden');
   if (urlFieldVisible) url = document.getElementById('login-db-url').value.trim();
-  if (!url || !pin) { err.textContent = 'Datenbank-URL und PIN erforderlich.'; return; }
-  if (!initFirebase(url)) { err.textContent = 'Konnte keine Verbindung zur Datenbank herstellen.'; return; }
+  if (!url || !pin) { err.textContent = 'Database URL and PIN are required.'; return; }
+  if (!initFirebase(url)) { err.textContent = 'Could not connect to the database.'; return; }
   try {
     const data = await dbRead();
-    if (!data) { err.textContent = 'Keine Kampagne unter dieser URL gefunden.'; return; }
+    if (!data) { err.textContent = 'No campaign found at this URL.'; return; }
     if (data.gmPin && atob(data.gmPin) === pin) {
       session = { role: 'gm', charId: null };
     } else {
       const chars = data.characters || {};
       const found = Object.values(chars).find(c => c.pin && c.pin === pin);
-      if (!found) { err.textContent = 'Falsche PIN. Nochmal versuchen.'; return; }
+      if (!found) { err.textContent = 'Wrong PIN. Try again.'; return; }
       session = { role: 'player', charId: found.id };
     }
     localStorage.setItem('academy_db_url', url);
@@ -112,7 +112,7 @@ async function doLogin() {
     setTimeout(() => { showApp(); renderAll(); }, 300);
   } catch (e) {
     console.error(e);
-    err.textContent = 'Login fehlgeschlagen: ' + e.message;
+    err.textContent = 'Login failed: ' + e.message;
   }
 }
 

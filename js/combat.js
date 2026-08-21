@@ -1,9 +1,9 @@
 // ═══════════════════════════════════════════════════════════════
-// COMBATMODUL
-// Vereinfachtes Kampf-Tracking: keine Würfel-/Wahrscheinlichkeitslogik.
-// GM verschiebt die Initiative-Reihenfolge manuell (je nach Tischwurf),
-// trackt HP/Mana per Heal/Damage-Calculator, sieht Waffen/Fähigkeiten/
-// Artefakte jedes Charakters auf einen Blick.
+// COMBAT MODULE
+// Simplified combat tracking: no dice/probability logic. The GM moves the
+// initiative order manually (based on rolls at the table), tracks HP/Mana
+// with a heal/damage calculator, and sees every character's weapons,
+// abilities, and artifacts at a glance.
 // ═══════════════════════════════════════════════════════════════
 
 function renderCombat() {
@@ -17,12 +17,12 @@ function renderCombat() {
   let html = `
   <div class="panel">
     <div class="panel-title">
-      <span>Initiative — Runde ${state.combat.round}</span>
+      <span>Initiative — Round ${state.combat.round}</span>
       ${isGM ? `
       <div style="display:flex;gap:8px">
         ${state.combat.active
-          ? `<button class="btn small" onclick="nextTurn()">Nächster Zug →</button><button class="btn small danger" onclick="endCombat()">Kampf beenden</button>`
-          : `<button class="btn small primary" onclick="startCombat()">Kampf starten</button>`}
+          ? `<button class="btn small" onclick="nextTurn()">Next turn →</button><button class="btn small danger" onclick="endCombat()">End combat</button>`
+          : `<button class="btn small primary" onclick="startCombat()">Start combat</button>`}
       </div>` : ''}
     </div>
     ${isGM && notInCombat.length ? `
@@ -30,9 +30,9 @@ function renderCombat() {
       <select id="add-to-combat-select" style="grid-column:span 2">
         ${notInCombat.map(c => `<option value="${c.id}">${escapeHtml(c.name)} ${c.isNPC ? '(NPC)' : '(PC)'}</option>`).join('')}
       </select>
-      <button class="btn" onclick="addToCombat(document.getElementById('add-to-combat-select').value)">+ Zur Reihenfolge hinzufügen</button>
+      <button class="btn" onclick="addToCombat(document.getElementById('add-to-combat-select').value)">+ Add to initiative order</button>
     </div>` : ''}
-    ${inCombat.length ? '' : '<div class="empty-state">Noch niemand im Kampf.</div>'}
+    ${inCombat.length ? '' : '<div class="empty-state">No one in combat yet.</div>'}
   </div>
   ${inCombat.map((c, i) => combatCardHtml(c, i, isGM)).join('')}
   `;
@@ -60,8 +60,8 @@ function combatCardHtml(c, i, isGM) {
         ${isGM ? `
         <div class="calc-row">
           <input type="number" id="hpcalc-${c.id}" value="1" min="1">
-          <button class="btn small danger" onclick="applyDelta('${c.id}','hp',-Number(document.getElementById('hpcalc-${c.id}').value))">− Schaden</button>
-          <button class="btn small" onclick="applyDelta('${c.id}','hp',Number(document.getElementById('hpcalc-${c.id}').value))">+ Heilen</button>
+          <button class="btn small danger" onclick="applyDelta('${c.id}','hp',-Number(document.getElementById('hpcalc-${c.id}').value))">− Damage</button>
+          <button class="btn small" onclick="applyDelta('${c.id}','hp',Number(document.getElementById('hpcalc-${c.id}').value))">+ Heal</button>
         </div>` : ''}
         <div class="stat-bar-wrap" style="margin-top:8px">
           <div class="stat-bar-label"><span>Mana</span><span>${c.mana}/${c.maxMana}</span></div>
@@ -70,16 +70,16 @@ function combatCardHtml(c, i, isGM) {
         ${isGM ? `
         <div class="calc-row">
           <input type="number" id="manacalc-${c.id}" value="1" min="1">
-          <button class="btn small danger" onclick="applyDelta('${c.id}','mana',-Number(document.getElementById('manacalc-${c.id}').value))">− Verbrauch</button>
-          <button class="btn small" onclick="applyDelta('${c.id}','mana',Number(document.getElementById('manacalc-${c.id}').value))">+ Regeneration</button>
+          <button class="btn small danger" onclick="applyDelta('${c.id}','mana',-Number(document.getElementById('manacalc-${c.id}').value))">− Spend</button>
+          <button class="btn small" onclick="applyDelta('${c.id}','mana',Number(document.getElementById('manacalc-${c.id}').value))">+ Regen</button>
         </div>` : ''}
       </div>
       <div>
         ${(c.stats || []).length ? `<div style="margin-bottom:6px">${c.stats.map(s => `<span class="tag on-card">${escapeHtml(s.key)}: ${escapeHtml(s.value)}</span>`).join('')}</div>` : ''}
-        <div class="sub" style="font-weight:bold;margin-bottom:2px">Fähigkeiten</div>
+        <div class="sub" style="font-weight:bold;margin-bottom:2px">Abilities</div>
         <div style="font-size:12px;white-space:pre-wrap;margin-bottom:8px">${escapeHtml(c.abilitiesNotes) || '—'}</div>
         ${combatSkillsHtml(c)}
-        <div class="sub" style="font-weight:bold;margin-bottom:2px">Waffen & Ausrüstung</div>
+        <div class="sub" style="font-weight:bold;margin-bottom:2px">Weapons & Gear</div>
         ${(c.inventory || []).length ? c.inventory.map(it => `<div style="font-size:12px;margin-bottom:3px"><strong>${escapeHtml(it.name)}</strong>${it.description ? ' — ' + escapeHtml(it.description) : ''}</div>`).join('') : '<div class="sub">—</div>'}
       </div>
     </div>
@@ -130,12 +130,12 @@ async function moveInCombat(charId, dir) {
 
 async function startCombat() {
   await dbUpdate({ 'combat/active': true, 'combat/round': 1, 'combat/currentTurn': 0 });
-  showToast('Kampf gestartet.');
+  showToast('Combat started.');
 }
 
 async function endCombat() {
   await dbUpdate({ 'combat/active': false });
-  showToast('Kampf beendet.');
+  showToast('Combat ended.');
 }
 
 async function nextTurn() {

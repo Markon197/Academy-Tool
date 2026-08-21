@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════════
-// DEMO-MODUS — komplett ohne Firebase, damit der GM sich das Tool
-// anschauen und Feedback geben kann, bevor er seine eigene Datenbank
-// eingerichtet hat. Schreibt/liest nur lokal (localStorage), dbWrite/
-// dbUpdate in state.js zweigen dafür einfach auf setPath() ab.
+// DEMO MODE — runs entirely without Firebase, so the GM can look at the
+// tool and give feedback before setting up their own database. Reads/
+// writes only locally (localStorage); dbWrite/dbUpdate in state.js branch
+// off to setPath() for this.
 // ═══════════════════════════════════════════════════════════════
 
 const DEMO_STORAGE_KEY = 'academy_demo_state';
@@ -17,11 +17,11 @@ function loadDemoState() {
   try { return JSON.parse(raw); } catch (e) { return null; }
 }
 
-// Demo lädt direkt die echten Regelwerk-Daten (CURRICULUM_SEED aus
-// curriculum-seed.js, 1:1 aus der DM-Excel importiert) statt erfundener
-// Platzhalter-Inhalte — der DM soll seine eigenen Talente/Skills/
-// Professoren/Clubs sofort korrekt eingebunden sehen, inkl. der vier
-// echten Spielercharaktere mit ihren tatsächlichen Club-Mitgliedschaften.
+// Demo mode loads the real curriculum data directly (CURRICULUM_SEED from
+// curriculum-seed.js, imported 1:1 from the DM's spreadsheet) instead of
+// invented placeholder content — the DM should immediately see their own
+// talents/skills/professors/clubs wired up correctly, including the four
+// real player characters with their actual club memberships.
 function byName(list, name) { return list.find(x => x.name.toLowerCase().includes(name.toLowerCase())); }
 
 function seedDemoState() {
@@ -59,8 +59,8 @@ function seedDemoState() {
       clubIds: [prefectCorps, bookwormClub].filter(Boolean).map(c => c.id),
       talentRanks: closeCombat ? { [closeCombat.id]: 1 } : {},
       skillIds: [], unlockedIds: [],
-      inventory: [{ id: uid(), name: 'Prefect-Abzeichen', description: 'Soziale Hebelwirkung + begrenzter Zugang zu Personal-Korridoren.' }],
-      abilitiesNotes: 'Illegitimer Zwilling (2 Minuten älter als Dani). Von ihr getrennt seit dem 10. Lebensjahr, beide glauben den anderen tot. Will sich vor allem seinem Adoptivvater beweisen.',
+      inventory: [{ id: uid(), name: 'Prefect Badge', description: 'Social leverage + limited access to staff corridors.' }],
+      abilitiesNotes: 'Illegitimate twin (2 minutes older than Dani). Separated from her since age 10, both believe the other is dead. Wants to prove himself to his adoptive father above all.',
       pin: '1111',
     },
     [charDrusilla]: {
@@ -71,8 +71,8 @@ function seedDemoState() {
       clubIds: [ritualCraft, murderClub].filter(Boolean).map(c => c.id),
       talentRanks: nervesOfSteel ? { [nervesOfSteel.id]: 1 } : {},
       skillIds: [], unlockedIds: [],
-      inventory: [{ id: uid(), name: 'Persönliches Ritual-Kit', description: 'Werkzeug für Wards, Alchemie, kleinere gefährliche Experimente.' }],
-      abilitiesNotes: '"Sister Dani of the Cross" — religiöse Fanatikerin, im Kloster aufgewachsen. Die Kirche hält sie für eine Top-Kandidatin für "die Erwählte".',
+      inventory: [{ id: uid(), name: 'Personal Ritual Kit', description: 'Tools for wards, alchemy, and small dangerous experiments.' }],
+      abilitiesNotes: '"Sister Dani of the Cross" — religious fanatic, raised in a convent. The church considers her a top candidate for "the Chosen One".',
       pin: '2222',
     },
     [charFad]: {
@@ -83,8 +83,8 @@ function seedDemoState() {
       clubIds: [duelingSociety, dungeonball].filter(Boolean).map(c => c.id),
       talentRanks: backstabber ? { [backstabber.id]: 1 } : {},
       skillIds: cleavingArc ? [cleavingArc.id] : [], unlockedIds: [],
-      inventory: [{ id: uid(), name: 'Ranglisten-Klinge', description: 'Turniertaugliche Duellwaffe aus der Dueling Society.' }],
-      abilitiesNotes: 'Ein versiegelter Brief in eigener Handschrift: "OPEN WHEN THEY LIE." Adressiert an sich selbst — Inhalt bisher unbekannt.',
+      inventory: [{ id: uid(), name: 'Ranked Blade', description: 'Tournament-grade duelling weapon from the Dueling Society.' }],
+      abilitiesNotes: 'A sealed envelope in his own handwriting: "OPEN WHEN THEY LIE." Addressed to himself — contents unknown so far.',
       pin: '3333',
     },
     [charDalton]: {
@@ -95,8 +95,8 @@ function seedDemoState() {
       clubIds: [dungeonball].filter(Boolean).map(c => c.id),
       talentRanks: {},
       skillIds: ironGuard ? [ironGuard.id] : [], unlockedIds: [],
-      inventory: [{ id: uid(), name: 'Winter', description: 'Uncanny-smart weißes Katzenwesen mit hellblauen Augen. Folgt nur Dalton, kann einmal pro Sitzung etwas Kleines holen/stibitzen.' }],
-      abilitiesNotes: 'Ein Fänger beim Dungeonball. Das Katzenwesen "Winter" saß eines Morgens einfach mit einem Namensschild auf ihrer Brust.',
+      inventory: [{ id: uid(), name: 'Winter', description: 'Uncanny-smart white cat-like creature with pale blue eyes. Follows only Dalton, can fetch/steal one small thing once per session.' }],
+      abilitiesNotes: 'A catcher in Dungeonball. The creature "Winter" simply sat on her chest one morning with a name tag.',
       pin: '4444',
     },
   };
@@ -114,7 +114,7 @@ function resetDemoState() {
   localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(fresh));
   state = fresh;
   renderAll();
-  showToast('Demo zurückgesetzt.');
+  showToast('Demo reset.');
 }
 
 function startDemoMode(role) {

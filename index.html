@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Academy Tool // Charakter & Kampf-Tracker</title>
+<title>Academy Tool // Character & Combat Tracker</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -12,25 +12,25 @@
 <div id="setup-screen" class="hidden">
   <div id="auth-screen">
     <div class="banner">ACADEMY TOOL</div>
-    <div class="subtitle">Ersteinrichtung — Datenbank & GM-PIN festlegen</div>
+    <div class="subtitle">First-time setup — set database & GM PIN</div>
     <div class="box panel">
       <div class="field">
-        <label>Kampagnenname</label>
-        <input type="text" id="setup-campaign-name" placeholder="z.B. Die Akademie von Ashveil">
+        <label>Campaign name</label>
+        <input type="text" id="setup-campaign-name" placeholder="e.g. The Academy of Ashveil">
       </div>
       <div class="field">
         <label>Firebase Realtime Database URL</label>
-        <input type="text" id="setup-db-url" placeholder="https://dein-projekt-default-rtdb.firebaseio.com">
+        <input type="text" id="setup-db-url" placeholder="https://your-project-default-rtdb.firebaseio.com">
       </div>
       <div class="field">
-        <label>GM-PIN (4–8 Zeichen)</label>
-        <input type="password" id="setup-gm-pin" placeholder="Eigene GM-PIN wählen" maxlength="8">
+        <label>GM PIN (4–8 characters)</label>
+        <input type="password" id="setup-gm-pin" placeholder="Choose your GM PIN" maxlength="8">
       </div>
-      <button class="btn primary" style="width:100%" onclick="doSetup()">Einrichten</button>
+      <button class="btn primary" style="width:100%" onclick="doSetup()">Set up</button>
       <div class="error-msg" id="setup-error"></div>
-      <p class="note">Diese Datenbank-URL wird nur auf diesem Gerät gespeichert. Alle Spieler verbinden sich später über die gleiche URL + ihre eigene PIN.</p>
+      <p class="note">This database URL is only stored on this device. All players later connect using the same URL + their own PIN.</p>
     </div>
-    <a href="#" onclick="showLoginScreen();return false;" style="font-size:12px">Ich habe schon eine Datenbank-URL &rarr; zum Login</a>
+    <a href="#" onclick="showLoginScreen();return false;" style="font-size:12px">I already have a database URL &rarr; go to login</a>
   </div>
 </div>
 
@@ -38,27 +38,27 @@
 <div id="login-screen" class="hidden">
   <div id="auth-screen">
     <div class="banner">ACADEMY TOOL</div>
-    <div class="subtitle" id="login-campaign-name">Verbindung herstellen</div>
+    <div class="subtitle" id="login-campaign-name">Connect to a campaign</div>
     <div class="box panel">
       <div class="field hidden" id="login-db-url-field">
-        <label>Datenbank-URL</label>
-        <input type="text" id="login-db-url" placeholder="https://dein-projekt-default-rtdb.firebaseio.com">
+        <label>Database URL</label>
+        <input type="text" id="login-db-url" placeholder="https://your-project-default-rtdb.firebaseio.com">
       </div>
       <div class="field">
         <label>PIN</label>
-        <input type="password" id="login-pin" placeholder="Deine PIN" maxlength="8" onkeydown="if(event.key==='Enter')doLogin()">
+        <input type="password" id="login-pin" placeholder="Your PIN" maxlength="8" onkeydown="if(event.key==='Enter')doLogin()">
       </div>
-      <button class="btn primary" style="width:100%" onclick="doLogin()">Verbinden</button>
+      <button class="btn primary" style="width:100%" onclick="doLogin()">Connect</button>
       <div class="error-msg" id="login-error"></div>
-      <p class="note">GM: Nutze deine GM-PIN für vollen Zugriff.<br>Spieler: Nutze die PIN, die dir dein GM gegeben hat.</p>
+      <p class="note">GM: use your GM PIN for full access.<br>Players: use the PIN your GM gave you.</p>
     </div>
-    <a href="#" onclick="showSetupScreen();return false;" style="font-size:12px">Neue Kampagne einrichten</a>
+    <a href="#" onclick="showSetupScreen();return false;" style="font-size:12px">Set up a new campaign</a>
     <div class="box panel" style="margin-top:6px">
-      <div class="panel-title" style="margin-bottom:8px;border:none;padding-bottom:0">Ohne eigene Datenbank ausprobieren</div>
-      <p class="note" style="margin-top:0;margin-bottom:10px">Demo-Modus mit vorgefertigten Charakteren, läuft rein lokal in diesem Browser — keine Datenbank nötig.</p>
+      <div class="panel-title" style="margin-bottom:8px;border:none;padding-bottom:0">Try it without your own database</div>
+      <p class="note" style="margin-top:0;margin-bottom:10px">Demo mode with pre-built characters, runs entirely in this browser — no database needed.</p>
       <div style="display:flex;gap:8px">
-        <button class="btn" style="flex:1" onclick="startDemoMode('gm')">Demo: Spielleiter</button>
-        <button class="btn" style="flex:1" onclick="startDemoMode('player')">Demo: Spieler</button>
+        <button class="btn" style="flex:1" onclick="startDemoMode('gm')">Demo: GM</button>
+        <button class="btn" style="flex:1" onclick="startDemoMode('player')">Demo: Player</button>
       </div>
     </div>
   </div>
@@ -74,15 +74,15 @@
     <div class="session-info">
       <span class="role-badge hidden" id="demo-badge" style="color:var(--red-bright);border-color:var(--red-bright)">DEMO</span>
       <span class="role-badge" id="header-role-badge">—</span>
-      <button class="btn small hidden" id="demo-reset-btn" onclick="resetDemoState()">Demo zurücksetzen</button>
-      <button class="btn small" onclick="doLogout()">Abmelden</button>
+      <button class="btn small hidden" id="demo-reset-btn" onclick="resetDemoState()">Reset demo</button>
+      <button class="btn small" onclick="doLogout()">Log out</button>
     </div>
   </header>
 
   <nav id="tabs">
-    <button data-view="view-characters" onclick="switchView('view-characters')">Charaktere</button>
-    <button data-view="view-combat" onclick="switchView('view-combat')">Kampf</button>
-    <button data-view="view-talents" onclick="switchView('view-talents')">Talente</button>
+    <button data-view="view-characters" onclick="switchView('view-characters')">Characters</button>
+    <button data-view="view-combat" onclick="switchView('view-combat')">Combat</button>
+    <button data-view="view-talents" onclick="switchView('view-talents')">Talents</button>
   </nav>
 
   <main>

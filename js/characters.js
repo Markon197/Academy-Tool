@@ -1,8 +1,9 @@
 // ═══════════════════════════════════════════════════════════════
-// CHARAKTERMODUL
-// GM: legt Charaktere/NPCs manuell an (freie Stats, kein festes Regelwerk),
-//     verwaltet Inventar inkl. 1-Klick-Transfer zwischen Charakteren.
-// Spieler: sieht nur die eigene Charakterkarte, rein lesend.
+// CHARACTER MODULE
+// GM: creates characters/NPCs manually (free-form stats, no fixed rule
+//     system), manages inventory including 1-click transfer between
+//     characters.
+// Player: only sees their own character card, read-only.
 // ═══════════════════════════════════════════════════════════════
 
 let editingCharId = null;   // id of the character whose sheet-editor is open
@@ -26,7 +27,7 @@ function renderCharacters() {
 
   if (session.role === 'player') {
     const c = state.characters[session.charId];
-    root.innerHTML = c ? characterReadCardHtml(c) : '<div class="empty-state">Kein Charakter gefunden.</div>';
+    root.innerHTML = c ? characterReadCardHtml(c) : '<div class="empty-state">No character found.</div>';
     return;
   }
 
@@ -37,26 +38,26 @@ function renderCharacters() {
 
   let html = `
   <div class="panel">
-    <div class="panel-title">Charaktere & NPCs</div>
+    <div class="panel-title">Characters & NPCs</div>
     <div class="grid cols-3" style="align-items:end;margin-bottom:12px">
       <div class="field" style="margin-bottom:0">
-        <label>Suche</label>
+        <label>Search</label>
         <input type="text" placeholder="Name…" value="${escapeAttr(charSearch)}" oninput="charSearch=this.value;renderCharacters()">
       </div>
       <div class="field" style="margin-bottom:0">
         <label>Filter</label>
         <select onchange="charFilter=this.value;renderCharacters()">
-          <option value="all" ${charFilter === 'all' ? 'selected' : ''}>Alle</option>
-          <option value="pc" ${charFilter === 'pc' ? 'selected' : ''}>Nur PCs</option>
-          <option value="npc" ${charFilter === 'npc' ? 'selected' : ''}>Nur NPCs</option>
+          <option value="all" ${charFilter === 'all' ? 'selected' : ''}>All</option>
+          <option value="pc" ${charFilter === 'pc' ? 'selected' : ''}>PCs only</option>
+          <option value="npc" ${charFilter === 'npc' ? 'selected' : ''}>NPCs only</option>
         </select>
       </div>
       <div style="display:flex;gap:8px">
-        <button class="btn primary" onclick="startNewCharacter(false)">+ Neuer PC</button>
-        <button class="btn" onclick="startNewCharacter(true)">+ Neuer NPC</button>
+        <button class="btn primary" onclick="startNewCharacter(false)">+ New PC</button>
+        <button class="btn" onclick="startNewCharacter(true)">+ New NPC</button>
       </div>
     </div>
-    ${list.length ? list.map(c => rosterItemHtml(c)).join('') : '<div class="empty-state">Noch keine Charaktere angelegt.</div>'}
+    ${list.length ? list.map(c => rosterItemHtml(c)).join('') : '<div class="empty-state">No characters created yet.</div>'}
   </div>`;
 
   if (editingCharId) html += characterEditorHtml();
@@ -68,10 +69,10 @@ function rosterItemHtml(c) {
   return `
   <div class="roster-item" onclick="openCharEditor('${c.id}')">
     <div>
-      <div class="name">${escapeHtml(c.name || '(unbenannt)')} ${c.isNPC ? '<span class="tag">NPC</span>' : '<span class="tag">PC</span>'}</div>
+      <div class="name">${escapeHtml(c.name || '(unnamed)')} ${c.isNPC ? '<span class="tag">NPC</span>' : '<span class="tag">PC</span>'}</div>
       <div class="meta">Level ${c.level} · HP ${c.hp}/${c.maxHp} · Mana ${c.mana}/${c.maxMana}</div>
     </div>
-    <button class="icon-btn" onclick="event.stopPropagation();deleteCharacter('${c.id}')" title="Löschen">✕</button>
+    <button class="icon-btn" onclick="event.stopPropagation();deleteCharacter('${c.id}')" title="Delete">✕</button>
   </div>`;
 }
 
@@ -100,21 +101,21 @@ function closeCharEditor() {
 }
 
 async function saveCharEditor() {
-  if (!editingDraft.name.trim()) { showToast('Name fehlt.'); return; }
+  if (!editingDraft.name.trim()) { showToast('Name is missing.'); return; }
   const clean = JSON.parse(JSON.stringify(editingDraft));
   delete clean._isNew;
   await dbWrite('characters/' + clean.id, clean);
-  showToast('Charakter gespeichert.');
+  showToast('Character saved.');
   closeCharEditor();
 }
 
 async function deleteCharacter(id) {
-  if (!confirm('Diesen Charakter wirklich löschen?')) return;
+  if (!confirm('Really delete this character?')) return;
   await dbWrite('characters/' + id, null);
   const order = (state.combat.order || []).filter(x => x !== id);
   await dbWrite('combat/order', order);
   if (editingCharId === id) closeCharEditor();
-  showToast('Charakter gelöscht.');
+  showToast('Character deleted.');
 }
 
 // ── Draft field helpers (mutate editingDraft without re-rendering, so the
@@ -141,7 +142,7 @@ function characterEditorHtml() {
   return `
   <div class="panel" id="editor-panel">
     <div class="panel-title">
-      ${d._isNew ? 'Neuer' : 'Bearbeite'} ${d.isNPC ? 'NPC' : 'Charakter'}
+      ${d._isNew ? 'New' : 'Edit'} ${d.isNPC ? 'NPC' : 'Character'}
       <button class="icon-btn" onclick="closeCharEditor()">✕</button>
     </div>
     <div class="grid cols-2">
@@ -158,14 +159,14 @@ function characterEditorHtml() {
         <div class="grid cols-3">
           <div class="field"><label>Mana</label><input type="number" value="${d.mana}" oninput="draftSetNum('mana',this.value)"></div>
           <div class="field"><label>Max Mana</label><input type="number" value="${d.maxMana}" oninput="draftSetNum('maxMana',this.value)"></div>
-          ${!d.isNPC ? `<div class="field"><label>Spieler-PIN</label><input type="text" maxlength="8" value="${escapeAttr(d.pin)}" oninput="draftSet('pin',this.value)"></div>` : ''}
+          ${!d.isNPC ? `<div class="field"><label>Player PIN</label><input type="text" maxlength="8" value="${escapeAttr(d.pin)}" oninput="draftSet('pin',this.value)"></div>` : ''}
         </div>
         <div class="field">
-          <label>Professoren / Schwerpunkte (2–3)</label>
+          <label>Professors / Focus areas (2–3)</label>
           <div>${professorOptions.length ? professorOptions.map(p => `
             <label style="display:inline-flex;align-items:center;gap:4px;width:auto;text-transform:none;font-size:12px;margin-right:12px">
               <input type="checkbox" style="width:auto" ${d.professorIds.includes(p.id) ? 'checked' : ''} onchange="draftToggleProfessor('${p.id}')"> ${escapeHtml(p.name)}
-            </label>`).join('') : '<span class="note">Noch keine Professoren angelegt (siehe Talente-Tab).</span>'}
+            </label>`).join('') : '<span class="note">No professors created yet (see the Talents tab).</span>'}
           </div>
         </div>
         <div class="field">
@@ -173,33 +174,33 @@ function characterEditorHtml() {
           <div>${clubOptions.length ? clubOptions.map(cl => `
             <label style="display:inline-flex;align-items:center;gap:4px;width:auto;text-transform:none;font-size:12px;margin-right:12px">
               <input type="checkbox" style="width:auto" ${d.clubIds.includes(cl.id) ? 'checked' : ''} onchange="draftToggleClub('${cl.id}')"> ${escapeHtml(cl.name)}
-            </label>`).join('') : '<span class="note">Noch keine Clubs angelegt (siehe Talente-Tab).</span>'}
+            </label>`).join('') : '<span class="note">No clubs created yet (see the Talents tab).</span>'}
           </div>
         </div>
       </div>
       <div>
         <div class="field">
-          <label>Freie Stats</label>
+          <label>Free-form stats</label>
           ${d.stats.map((s, i) => `
           <div class="stat-row">
-            <input type="text" placeholder="Attribut" value="${escapeAttr(s.key)}" oninput="statSet(${i},'key',this.value)">
-            <input type="text" placeholder="Wert" value="${escapeAttr(s.value)}" oninput="statSet(${i},'value',this.value)">
+            <input type="text" placeholder="Attribute" value="${escapeAttr(s.key)}" oninput="statSet(${i},'key',this.value)">
+            <input type="text" placeholder="Value" value="${escapeAttr(s.value)}" oninput="statSet(${i},'value',this.value)">
             <button class="icon-btn" onclick="removeStatRow(${i})">✕</button>
           </div>`).join('')}
-          <button class="btn small" onclick="addStatRow()">+ Stat hinzufügen</button>
+          <button class="btn small" onclick="addStatRow()">+ Add stat</button>
         </div>
         <div class="field">
-          <label>Fähigkeiten / Beschreibung (Freitext)</label>
-          <textarea oninput="draftSet('abilitiesNotes',this.value)" placeholder="Besondere Fähigkeiten, Merkmale, Hintergrund…">${escapeHtml(d.abilitiesNotes)}</textarea>
+          <label>Abilities / description (free text)</label>
+          <textarea oninput="draftSet('abilitiesNotes',this.value)" placeholder="Special abilities, traits, background…">${escapeHtml(d.abilitiesNotes)}</textarea>
         </div>
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-top:6px">
-      <button class="btn primary" onclick="saveCharEditor()">Speichern</button>
-      <button class="btn" onclick="closeCharEditor()">Abbrechen</button>
+      <button class="btn primary" onclick="saveCharEditor()">Save</button>
+      <button class="btn" onclick="closeCharEditor()">Cancel</button>
     </div>
   </div>
-  ${!d._isNew ? inventoryPanelHtml(d.id) : '<div class="note" style="margin:-6px 0 16px">Inventar kann bearbeitet werden, sobald der Charakter einmal gespeichert wurde.</div>'}
+  ${!d._isNew ? inventoryPanelHtml(d.id) : '<div class="note" style="margin:-6px 0 16px">Inventory can be edited once the character has been saved.</div>'}
   `;
 }
 
@@ -212,7 +213,7 @@ function inventoryPanelHtml(charId) {
   const others = Object.values(state.characters).filter(x => x.id !== charId).sort((a, b) => a.name.localeCompare(b.name));
   return `
   <div class="panel">
-    <div class="panel-title">Inventar — ${escapeHtml(c.name)}</div>
+    <div class="panel-title">Inventory — ${escapeHtml(c.name)}</div>
     ${(c.inventory || []).length ? c.inventory.map(item => `
       <div class="inventory-item">
         <div style="flex:1">
@@ -224,15 +225,15 @@ function inventoryPanelHtml(charId) {
           <select id="transfer-target-${item.id}" style="width:auto">
             ${others.map(o => `<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('')}
           </select>
-          <button class="btn small" onclick="transferItem('${charId}','${item.id}',document.getElementById('transfer-target-${item.id}').value)">Verschieben →</button>
+          <button class="btn small" onclick="transferItem('${charId}','${item.id}',document.getElementById('transfer-target-${item.id}').value)">Transfer →</button>
           ` : ''}
           <button class="icon-btn" onclick="removeInventoryItem('${charId}','${item.id}')">✕</button>
         </div>
-      </div>`).join('') : '<div class="empty-state">Kein Inventar.</div>'}
+      </div>`).join('') : '<div class="empty-state">No inventory.</div>'}
     <div class="grid cols-3" style="margin-top:10px">
-      <input type="text" id="new-item-name-${charId}" placeholder="Item-Name (z.B. Flammenklinge)">
-      <input type="text" id="new-item-desc-${charId}" placeholder="Beschreibung (optional)">
-      <button class="btn" onclick="addInventoryItem('${charId}')">+ Hinzufügen</button>
+      <input type="text" id="new-item-name-${charId}" placeholder="Item name (e.g. Flame Blade)">
+      <input type="text" id="new-item-desc-${charId}" placeholder="Description (optional)">
+      <button class="btn" onclick="addInventoryItem('${charId}')">+ Add</button>
     </div>
   </div>`;
 }
@@ -246,7 +247,7 @@ async function addInventoryItem(charId) {
   const inv = (c.inventory || []).slice();
   inv.push({ id: uid(), name, description: descEl.value.trim() });
   await dbWrite('characters/' + charId + '/inventory', inv);
-  showToast('Item hinzugefügt.');
+  showToast('Item added.');
 }
 
 async function removeInventoryItem(charId, itemId) {
@@ -285,15 +286,15 @@ function characterReadCardHtml(c) {
           <div class="stat-bar"><div class="stat-bar-fill mana" style="width:${pct(c.mana, c.maxMana)}%"></div></div>
         </div>
         <p style="margin-top:8px;color:var(--text2)">Level ${c.level}</p>
-        <div style="margin-top:10px">${(c.stats || []).map(s => `<span class="tag">${escapeHtml(s.key)}: ${escapeHtml(s.value)}</span>`).join('') || '<span class="note">Keine Stats hinterlegt.</span>'}</div>
+        <div style="margin-top:10px">${(c.stats || []).map(s => `<span class="tag">${escapeHtml(s.key)}: ${escapeHtml(s.value)}</span>`).join('') || '<span class="note">No stats recorded.</span>'}</div>
       </div>
       <div>
-        <h4 style="margin-bottom:6px">Fähigkeiten</h4>
+        <h4 style="margin-bottom:6px">Abilities</h4>
         <p style="color:var(--text2);white-space:pre-wrap">${escapeHtml(c.abilitiesNotes) || '—'}</p>
       </div>
     </div>
-    <h4 style="margin:14px 0 6px">Inventar</h4>
-    ${(c.inventory || []).length ? c.inventory.map(i => `<div class="inventory-item"><div><strong>${escapeHtml(i.name)}</strong>${i.description ? `<div class="desc">${escapeHtml(i.description)}</div>` : ''}</div></div>`).join('') : '<div class="empty-state">Kein Inventar.</div>'}
+    <h4 style="margin:14px 0 6px">Inventory</h4>
+    ${(c.inventory || []).length ? c.inventory.map(i => `<div class="inventory-item"><div><strong>${escapeHtml(i.name)}</strong>${i.description ? `<div class="desc">${escapeHtml(i.description)}</div>` : ''}</div></div>`).join('') : '<div class="empty-state">No inventory.</div>'}
   </div>`;
 }
 
