@@ -2,27 +2,44 @@
 // APP INIT / VIEW SWITCHING
 // ═══════════════════════════════════════════════════════════════
 
+const VIEWS = ['view-characters', 'view-combat', 'view-curriculum', 'view-ledger', 'view-items'];
+
 function switchView(viewId) {
-  document.querySelectorAll('#tabs > button[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === viewId));
+  if (!VIEWS.includes(viewId) || (viewId === 'view-items' && session.role !== 'gm')) viewId = 'view-characters';
+  document.querySelectorAll('#tabs > button[data-view]').forEach(b => {
+    const on = b.dataset.view === viewId;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on);
+  });
   document.querySelectorAll('main > .view').forEach(v => v.classList.toggle('active', v.id === viewId));
-  localStorage.setItem('academy_last_view', viewId);
+  try { localStorage.setItem('academy_last_view', viewId); } catch (e) {}
 }
 
 function renderAll() {
+  if (!session.role) return;
   renderCharacters();
   renderCombat();
-  renderTalents();
+  renderCurriculum();
+  renderLedger();
+  renderItems();
+  if (rollerOpen) renderRoller();
   applyRoleGating();
-  const badge = document.getElementById('header-role-badge');
-  if (badge && session.role) {
-    document.getElementById('header-campaign-name').textContent = state.campaignName;
-  }
+  const name = document.getElementById('header-campaign-name');
+  if (name) name.textContent = state.campaignName;
+  // players only have one character, so say so
+  const tab = document.getElementById('tab-characters');
+  if (tab) tab.textContent = session.role === 'player' ? 'My Character' : 'Characters';
 }
 
 onStateChange(renderAll);
 
 document.addEventListener('DOMContentLoaded', () => {
-  const lastView = localStorage.getItem('academy_last_view') || 'view-characters';
-  switchView(lastView);
   initAuthOnLoad();
 });
+
+// Called by showApp() once someone is logged in.
+function restoreLastView() {
+  let last = 'view-characters';
+  try { last = localStorage.getItem('academy_last_view') || last; } catch (e) {}
+  switchView(last);
+}

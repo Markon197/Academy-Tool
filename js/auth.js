@@ -6,6 +6,8 @@
 // is asked for again on every fresh page load.
 // ═══════════════════════════════════════════════════════════════
 
+function savedDbUrl() { return localStorage.getItem('academy_db_url') || (typeof DEFAULT_DB_URL !== 'undefined' ? DEFAULT_DB_URL : ''); }
+
 function showSetupScreen() {
   document.getElementById('setup-screen').classList.remove('hidden');
   document.getElementById('login-screen').classList.add('hidden');
@@ -16,7 +18,7 @@ function showLoginScreen() {
   document.getElementById('setup-screen').classList.add('hidden');
   document.getElementById('login-screen').classList.remove('hidden');
   document.getElementById('app-root').classList.add('hidden');
-  const savedUrl = localStorage.getItem('academy_db_url');
+  const savedUrl = savedDbUrl();
   const savedName = localStorage.getItem('academy_campaign');
   const urlField = document.getElementById('login-db-url-field');
   if (savedUrl) {
@@ -44,6 +46,7 @@ function showApp() {
   document.getElementById('demo-badge').classList.toggle('hidden', !demoMode);
   document.getElementById('demo-reset-btn').classList.toggle('hidden', !demoMode);
   applyRoleGating();
+  restoreLastView();
 }
 
 // Elements marked data-gm-only are hidden/disabled for players.
@@ -68,18 +71,15 @@ async function doSetup() {
     await db.ref(dbPath()).set({
       campaignName,
       gmPin: btoa(pin),
-      characters: {},
-      professors: {},
-      clubs: {},
-      talents: {},
-      skills: {},
-      combat: { active: false, round: 1, currentTurn: 0, order: [] },
+      settings: { highWindow: 3 },
+      combat: blankCombat(),
     });
     localStorage.setItem('academy_db_url', url);
     localStorage.setItem('academy_campaign', campaignName);
     session = { role: 'gm', charId: null };
+    state = normaliseState({ campaignName });
     startSync();
-    setTimeout(() => { showApp(); renderAll(); }, 300);
+    showApp(); renderAll();
   } catch (e) {
     console.error(e);
     err.textContent = 'Setup failed: ' + e.message;
@@ -90,7 +90,7 @@ async function doLogin() {
   const err = document.getElementById('login-error');
   err.textContent = '';
   const pin = document.getElementById('login-pin').value.trim();
-  let url = localStorage.getItem('academy_db_url');
+  let url = savedDbUrl();
   const urlFieldVisible = !document.getElementById('login-db-url-field').classList.contains('hidden');
   if (urlFieldVisible) url = document.getElementById('login-db-url').value.trim();
   if (!url || !pin) { err.textContent = 'Database URL and PIN are required.'; return; }
@@ -108,8 +108,9 @@ async function doLogin() {
     }
     localStorage.setItem('academy_db_url', url);
     if (data.campaignName) localStorage.setItem('academy_campaign', data.campaignName);
+    state = normaliseState(data);
     startSync();
-    setTimeout(() => { showApp(); renderAll(); }, 300);
+    showApp(); renderAll();
   } catch (e) {
     console.error(e);
     err.textContent = 'Login failed: ' + e.message;
@@ -126,6 +127,8 @@ function doLogout() {
 }
 
 function initAuthOnLoad() {
-  const savedUrl = localStorage.getItem('academy_db_url');
+  // Demo mode (public sample data) is hidden unless the URL has ?demo
+  if (new URLSearchParams(location.search).has('demo')) document.querySelectorAll('.demo-box').forEach(el => el.classList.remove('hidden'));
+  const savedUrl = savedDbUrl();
   if (savedUrl) showLoginScreen(); else showSetupScreen();
 }

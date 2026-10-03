@@ -2,63 +2,71 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Academy Tool // Character & Combat Tracker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Last Curriculum // Academy Tool</title>
 <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/sheet.css">
 </head>
 <body>
 
 <!-- ═══════════════ AUTH: SETUP (first time on this device) ═══════════════ -->
 <div id="setup-screen" class="hidden">
   <div id="auth-screen">
-    <div class="banner">ACADEMY TOOL</div>
-    <div class="subtitle">First-time setup — set database & GM PIN</div>
+    <div class="banner">THE LAST CURRICULUM</div>
+    <div class="subtitle">First-time setup — set database &amp; GM PIN</div>
     <div class="box panel">
       <div class="field">
-        <label>Campaign name</label>
-        <input type="text" id="setup-campaign-name" placeholder="e.g. The Academy of Ashveil">
+        <label for="setup-campaign-name">Campaign name</label>
+        <input type="text" id="setup-campaign-name" placeholder="e.g. Universitas Aeterna Selectorum">
       </div>
       <div class="field">
-        <label>Firebase Realtime Database URL</label>
+        <label for="setup-db-url">Firebase Realtime Database URL</label>
         <input type="text" id="setup-db-url" placeholder="https://your-project-default-rtdb.firebaseio.com">
       </div>
       <div class="field">
-        <label>GM PIN (4–8 characters)</label>
+        <label for="setup-gm-pin">GM PIN (4–8 characters)</label>
         <input type="password" id="setup-gm-pin" placeholder="Choose your GM PIN" maxlength="8">
       </div>
       <button class="btn primary" style="width:100%" onclick="doSetup()">Set up</button>
-      <div class="error-msg" id="setup-error"></div>
+      <div class="error-msg" id="setup-error" role="alert"></div>
       <p class="note">This database URL is only stored on this device. All players later connect using the same URL + their own PIN.</p>
     </div>
     <a href="#" onclick="showLoginScreen();return false;" style="font-size:12px">I already have a database URL &rarr; go to login</a>
+    <div class="box panel demo-box hidden">
+      <div class="panel-title" style="margin-bottom:8px;border:none;padding-bottom:0">Try it without a database</div>
+      <div class="btn-row"><button class="btn" style="flex:1" onclick="startDemoMode('gm')">Demo: GM</button></div>
+    </div>
   </div>
 </div>
 
 <!-- ═══════════════ AUTH: LOGIN ═══════════════ -->
 <div id="login-screen" class="hidden">
   <div id="auth-screen">
-    <div class="banner">ACADEMY TOOL</div>
+    <div class="banner">THE LAST CURRICULUM</div>
     <div class="subtitle" id="login-campaign-name">Connect to a campaign</div>
     <div class="box panel">
       <div class="field hidden" id="login-db-url-field">
-        <label>Database URL</label>
+        <label for="login-db-url">Database URL</label>
         <input type="text" id="login-db-url" placeholder="https://your-project-default-rtdb.firebaseio.com">
       </div>
       <div class="field">
-        <label>PIN</label>
+        <label for="login-pin">PIN</label>
         <input type="password" id="login-pin" placeholder="Your PIN" maxlength="8" onkeydown="if(event.key==='Enter')doLogin()">
       </div>
       <button class="btn primary" style="width:100%" onclick="doLogin()">Connect</button>
-      <div class="error-msg" id="login-error"></div>
+      <div class="error-msg" id="login-error" role="alert"></div>
       <p class="note">GM: use your GM PIN for full access.<br>Players: use the PIN your GM gave you.</p>
     </div>
     <a href="#" onclick="showSetupScreen();return false;" style="font-size:12px">Set up a new campaign</a>
-    <div class="box panel" style="margin-top:6px">
+    <div class="box panel demo-box hidden">
       <div class="panel-title" style="margin-bottom:8px;border:none;padding-bottom:0">Try it without your own database</div>
-      <p class="note" style="margin-top:0;margin-bottom:10px">Demo mode with pre-built characters, runs entirely in this browser — no database needed.</p>
-      <div style="display:flex;gap:8px">
+      <p class="note" style="margin-top:0;margin-bottom:10px">Demo mode with the real curriculum, loot and NPC data. Runs entirely in this browser.</p>
+      <div class="btn-row">
         <button class="btn" style="flex:1" onclick="startDemoMode('gm')">Demo: GM</button>
-        <button class="btn" style="flex:1" onclick="startDemoMode('player')">Demo: Player</button>
+        <select id="demo-pc" aria-label="Player character" style="flex:1">
+          <option>Lucien</option><option>Drusilla</option><option>Fad</option><option>Dalton</option>
+        </select>
+        <button class="btn" style="flex:1" onclick="startDemoMode('player',document.getElementById('demo-pc').value)">Demo: Player</button>
       </div>
     </div>
   </div>
@@ -68,10 +76,11 @@
 <div id="app-root" class="hidden">
   <header id="app-header">
     <div>
-      <div class="title">ACADEMY TOOL</div>
+      <div class="title">THE LAST CURRICULUM</div>
       <div class="campaign-name" id="header-campaign-name">Campaign</div>
     </div>
     <div class="session-info">
+      <button class="btn small" onclick="toggleRoller()" aria-controls="roller">🎲 Roll &amp; log</button>
       <span class="role-badge hidden" id="demo-badge" style="color:var(--red-bright);border-color:var(--red-bright)">DEMO</span>
       <span class="role-badge" id="header-role-badge">—</span>
       <button class="btn small hidden" id="demo-reset-btn" onclick="resetDemoState()">Reset demo</button>
@@ -79,36 +88,47 @@
     </div>
   </header>
 
-  <nav id="tabs">
-    <button data-view="view-characters" onclick="switchView('view-characters')">Characters</button>
+  <nav id="tabs" role="tablist">
+    <button data-view="view-characters" id="tab-characters" onclick="switchView('view-characters')">Characters</button>
     <button data-view="view-combat" onclick="switchView('view-combat')">Combat</button>
-    <button data-view="view-talents" onclick="switchView('view-talents')">Talents</button>
+    <button data-view="view-curriculum" onclick="switchView('view-curriculum')">Curriculum</button>
+    <button data-view="view-ledger" onclick="switchView('view-ledger')">Ledger</button>
+    <button data-view="view-items" data-gm-only onclick="switchView('view-items')">Items</button>
   </nav>
 
   <main>
-    <div id="view-characters" class="view">
-      <div id="characters-root"></div>
-    </div>
-    <div id="view-combat" class="view">
-      <div id="combat-root"></div>
-    </div>
-    <div id="view-talents" class="view">
-      <div id="talents-root"></div>
-    </div>
+    <div id="view-characters" class="view"><div id="characters-root"></div></div>
+    <div id="view-combat" class="view"><div id="combat-root"></div></div>
+    <div id="view-curriculum" class="view"><div id="curriculum-root"></div></div>
+    <div id="view-ledger" class="view"><div id="ledger-root"></div></div>
+    <div id="view-items" class="view"><div id="items-root"></div></div>
   </main>
+
+  <aside id="roller" aria-label="Dice roller and table log">
+    <div class="roller-head"><span>🎲 Roll &amp; table log</span><button class="icon-btn" onclick="toggleRoller()" aria-label="Close">✕</button></div>
+    <div id="roller-body"></div>
+  </aside>
+  <div id="roll-result" class="roll-result" role="status" aria-live="polite"></div>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+<script src="js/config.js"></script>
+<script src="js/rules.js"></script>
 <script src="js/state.js"></script>
 <script src="js/curriculum-seed.js"></script>
+<script src="js/loot-seed.js"></script>
+<script src="js/rules-seed.js"></script>
 <script src="js/demo.js"></script>
 <script src="js/auth.js"></script>
+<script src="js/roller.js"></script>
 <script src="js/characters.js"></script>
 <script src="js/combat.js"></script>
-<script src="js/talents.js"></script>
+<script src="js/curriculum.js"></script>
+<script src="js/ledger.js"></script>
+<script src="js/items.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

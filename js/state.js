@@ -1,30 +1,42 @@
 // ═══════════════════════════════════════════════════════════════
 // STATE + FIREBASE SYNC
-// Same pattern as CP_Phantom: a single `state` tree lives at 'campaign/'
-// in a Firebase Realtime Database, synced live via an onValue listener.
-// dbWrite/dbUpdate write straight to the DB; the listener echoes the
-// change back into `state` and triggers a re-render everywhere.
+// A single `state` tree lives at 'campaign/' in a Firebase Realtime Database
+// and is synced live via an onValue listener. dbWrite/dbUpdate write straight
+// to the DB; the listener echoes the change back into `state` and re-renders.
+// In demo mode there is no Firebase: state lives in localStorage instead.
 // ═══════════════════════════════════════════════════════════════
 
 let db = null;
 let session = { role: null, charId: null }; // role: 'gm' | 'player'
-let demoMode = false; // true = no Firebase at all, state lives in localStorage only
+let demoMode = false;
+
+// Every collection that is synced. Firebase drops empty objects/arrays, so
+// each one gets a default when it comes back missing.
+const COLLECTIONS = ['characters', 'professors', 'clubs', 'talents', 'skills', 'archetypes', 'items', 'missions', 'rolls'];
+
+function blankCombat() {
+  return { active: false, round: 1, turn: 0, ambush: false, order: [], actions: {} };
+}
 
 let state = {
   campaignName: 'Campaign',
   gmPin: null,
-  characters: {},   // id -> character
-  professors: {},    // id -> professor (Pillar mentors)
-  clubs: {},         // id -> club/extracurricular (membership + one signature ability)
-  talents: {},       // id -> general, level-gated talent
-  skills: {},        // id -> origin-bound technique (professor or club)
-  combat: { active: false, round: 1, currentTurn: 0, order: [] }, // order: [characterId]
+  settings: { highWindow: 3 },
+  characters: {},   // id -> character (PCs and NPCs)
+  professors: {},   // id -> professor
+  clubs: {},        // id -> club / extracurricular
+  talents: {},      // id -> general, level-gated talent
+  skills: {},       // id -> origin-bound technique
+  archetypes: {},   // id -> archetype
+  items: {},        // id -> item library entry
+  missions: {},     // id -> { name, notes, seals: { charId: { mastery, method, conduct } } }
+  rolls: {},        // id -> roll log entry (shared table log)
+  combat: blankCombat(),
 };
 
-let lastStateHash = '';
-const stateListeners = new Set(); // functions called after every sync
-
+const stateListeners = new Set();
 function onStateChange(fn) { stateListeners.add(fn); }
+let lastStateHash = '';
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
@@ -40,8 +52,41 @@ function setPath(obj, path, val) {
   else cur[parts[parts.length - 1]] = val;
 }
 
+// Normalise whatever came back from Firebase / localStorage into a full state.
+// Firebase turns {0:..,1:..} maps into arrays and drops empty containers, so
+// everything is defaulted and list-like fields are coerced back.
+function normaliseState(data) {
+  const s = {
+    campaignName: data.campaignName || 'Campaign',
+    gmPin: data.gmPin || null,
+    settings: { highWindow: 3, ...(data.settings || {}) },
+  };
+  COLLECTIONS.forEach(k => { s[k] = data[k] || {}; });
+  const c = { ...blankCombat(), ...(data.combat || {}) };
+  c.order = toList(c.order);
+  c.actions = c.actions || {};
+  s.combat = c;
+  Object.values(s.characters).forEach(normaliseCharacter);
+  return s;
+}
+
+function toList(v) { return Array.isArray(v) ? v.filter(x => x != null) : v ? Object.values(v) : []; }
+
+function normaliseCharacter(c) {
+  c.pillars = { ...blankPillars(), ...(c.pillars || {}) };
+  c.skills = { ...blankSkills(), ...(c.skills || {}) };
+  ['professorIds', 'clubIds', 'skillIds', 'unlockedIds', 'conditions'].forEach(k => { c[k] = toList(c[k]); });
+  c.talentRanks = c.talentRanks || {};
+  c.techniques = c.techniques || {};
+  c.cooldowns = c.cooldowns || {};
+  c.inventory = c.inventory || {};
+  ['life', 'focus', 'energy', 'stress', 'ascension', 'ruin', 'detention'].forEach(k => { c[k] = Number(c[k]) || 0; });
+  return c;
+}
+
 function initFirebase(dbUrl) {
   try {
+    if (typeof firebase === 'undefined') return false;
     if (firebase.apps.length) firebase.apps[0].delete();
     const app = firebase.initializeApp({ databaseURL: dbUrl }, 'academy');
     db = firebase.database(app);
@@ -57,14 +102,14 @@ async function dbRead() {
 }
 
 async function dbWrite(path, val) {
-  if (demoMode) { setPath(state, path, val); saveDemoState(); renderAll(); return; }
+  if (demoMode) { setPath(state, path, val); saveDemoState(); scheduleRender(); return; }
   await db.ref(dbPath() + '/' + path).set(val);
 }
 
 async function dbUpdate(updates) {
   if (demoMode) {
     for (const [k, v] of Object.entries(updates)) setPath(state, k, v);
-    saveDemoState(); renderAll(); return;
+    saveDemoState(); scheduleRender(); return;
   }
   const prefixed = {};
   for (const [k, v] of Object.entries(updates)) prefixed[dbPath() + '/' + k] = v;
@@ -78,22 +123,35 @@ function startSync() {
     const hash = JSON.stringify(data);
     if (hash === lastStateHash) return;
     lastStateHash = hash;
-    state.campaignName = data.campaignName || 'Campaign';
-    state.gmPin = data.gmPin || null;
-    state.characters = data.characters || {};
-    state.professors = data.professors || {};
-    state.clubs = data.clubs || {};
-    state.talents = data.talents || {};
-    state.skills = data.skills || {};
-    state.combat = data.combat || { active: false, round: 1, currentTurn: 0, order: [] };
-    stateListeners.forEach(fn => { try { fn(); } catch (e) { console.error(e); } });
+    state = normaliseState(data);
+    scheduleRender();
   });
 }
+
+// ── Rendering ──
+// Re-rendering replaces innerHTML, which would yank focus (and the caret)
+// out of an input while someone is typing and a sync update arrives. If a
+// text field is focused we wait until it loses focus, then render once.
+let renderPending = false;
+function isTyping() {
+  const el = document.activeElement;
+  if (!el || !el.closest('#app-root') || el.closest('#roller')) return false;
+  // selects and checkboxes commit instantly on change, so only text-like fields need protecting
+  return el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && /^(text|number|search|password)$/.test(el.type));
+}
+function scheduleRender() {
+  if (isTyping()) { renderPending = true; return; }
+  renderPending = false;
+  stateListeners.forEach(fn => { try { fn(); } catch (e) { console.error(e); } });
+}
+document.addEventListener('focusout', () => {
+  if (renderPending) setTimeout(() => { if (!isTyping()) scheduleRender(); }, 60);
+});
 
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(showToast._timer);
-  showToast._timer = setTimeout(() => t.classList.remove('show'), 2200);
+  showToast._timer = setTimeout(() => t.classList.remove('show'), 2600);
 }
