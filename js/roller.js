@@ -12,6 +12,14 @@ let rollerDraft = { charId: null, move: '', a: 'body', b: 'force', mod: 0 };
 
 function canActAs(charId) { return session.role === 'gm' || (session.role === 'player' && session.charId === charId); }
 
+// Off by default: the table rolls real dice. The sheet then just shows each
+// move's target number. The GM can switch the in-app roller on from the header.
+function digitalRolls() { return !!state.settings?.digitalRolls; }
+async function setDigitalRolls(on) {
+  await dbWrite('settings/digitalRolls', !!on);
+  if (!on && rollerOpen) toggleRoller();
+}
+
 function highWindow() { return Number(state.settings?.highWindow ?? 3); }
 
 async function logRoll(entry) {

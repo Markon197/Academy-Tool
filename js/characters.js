@@ -43,6 +43,12 @@ function charTechniques(c) {
   return lib.concat(own);
 }
 
+// "Body + Force" -> "Body + Force · TN 17" using this character's stats
+function rollTagText(c, t) {
+  const r = parseRoll(t.roll);
+  return r ? `${t.roll} · TN ${statValue(c, r.a) + statValue(c, r.b)}` : (t.roll || '');
+}
+
 function cooldownLabel(c, key) {
   const v = (c.cooldowns || {})[key];
   if (!v) return '';
@@ -195,7 +201,9 @@ function pillarsHtml(c) {
       <div class="pillar-head"><span>${p.toUpperCase()}</span>${inp('pillars', p, true)}</div>
       ${SKILLS_BY_PILLAR[p].map(s => `
         <div class="skill-row">
-          <button class="skill-roll" onclick="rollStats('${c.id}','${p}','${s}')" title="Roll ${STAT_LABEL(p)} + ${STAT_LABEL(s)} (TN ${statValue(c, p) + statValue(c, s)})">🎲 ${STAT_LABEL(s)}</button>
+          ${digitalRolls()
+            ? `<button class="skill-roll" onclick="rollStats('${c.id}','${p}','${s}')" title="Roll ${STAT_LABEL(p)} + ${STAT_LABEL(s)} (TN ${statValue(c, p) + statValue(c, s)})">🎲 ${STAT_LABEL(s)}</button>`
+            : `<span class="skill-label" title="${STAT_LABEL(p)} + ${STAT_LABEL(s)} = TN ${statValue(c, p) + statValue(c, s)}">${STAT_LABEL(s)} <small>TN ${statValue(c, p) + statValue(c, s)}</small></span>`}
           ${inp('skills', s, false)}
         </div>`).join('')}
     </div>`).join('')}</div>`;
@@ -204,7 +212,11 @@ function pillarsHtml(c) {
 function movesHtml(c) {
   const shown = showAllMoves ? MOVES.map((m, i) => [m, i]) : MOVES.map((m, i) => [m, i]).filter(([m]) => CORE_MOVES.includes(m[0]));
   return `
-  <div class="moves">${shown.map(([m, i]) => `<button class="move-btn" onclick="rollMove('${c.id}',${i})"><span>${m[0]}</span><small>${STAT_LABEL(m[1])}+${STAT_LABEL(m[2])} · TN ${statValue(c, m[1]) + statValue(c, m[2])}</small></button>`).join('')}</div>
+  <div class="moves">${shown.map(([m, i]) => {
+    const tn = statValue(c, m[1]) + statValue(c, m[2]);
+    const inner = `<span>${m[0]}</span><small>${STAT_LABEL(m[1])}+${STAT_LABEL(m[2])}</small><em class="tn">TN ${tn}</em>`;
+    return digitalRolls() ? `<button class="move-btn" onclick="rollMove('${c.id}',${i})">${inner}</button>` : `<div class="move-btn static">${inner}</div>`;
+  }).join('')}</div>
   <button class="btn small" style="margin-top:8px" onclick="showAllMoves=!showAllMoves;renderCharacters()">${showAllMoves ? 'Show fewer moves' : 'Show all ' + MOVES.length + ' moves'}</button>`;
 }
 
@@ -221,12 +233,12 @@ function techniquesHtml(c) {
     return `
     <div class="tech ${state_ ? 'on-cd' : ''}">
       <div class="tech-main">
-        <div><strong>${escapeHtml(t.name)}</strong> <span class="tag">${escapeHtml(t.origin || 'Technique')}</span>${t.levelRequirement ? `<span class="tag">Lvl ${t.levelRequirement}</span>` : ''}${t.cooldownCost ? `<span class="tag">${escapeHtml(t.cooldownCost)}</span>` : ''}${t.roll ? `<span class="tag">${escapeHtml(t.roll)}</span>` : ''}</div>
+        <div><strong>${escapeHtml(t.name)}</strong> <span class="tag">${escapeHtml(t.origin || 'Technique')}</span>${t.levelRequirement ? `<span class="tag">Lvl ${t.levelRequirement}</span>` : ''}${t.cooldownCost ? `<span class="tag">${escapeHtml(t.cooldownCost)}</span>` : ''}${t.roll ? `<span class="tag">${escapeHtml(rollTagText(c, t))}</span>` : ''}</div>
         <div class="desc">${escapeHtml(t.effect) || '—'}</div>
         ${state_ ? `<div class="cd-note">⏳ ${state_}</div>` : ''}
       </div>
       <div class="tech-btns">
-        ${canUse && !cd.passive ? `<button class="btn small primary" onclick="useTechnique('${c.id}','${t.key}')" ${state_ ? 'disabled' : ''}>${roll ? 'Use + roll' : 'Use'}</button>` : ''}
+        ${canUse && !cd.passive ? `<button class="btn small primary" onclick="useTechnique('${c.id}','${t.key}')" ${state_ ? 'disabled' : ''}>${roll && digitalRolls() ? 'Use + roll' : 'Use'}</button>` : ''}
         ${canUse && state_ ? `<button class="icon-btn" title="Reset cooldown" onclick="resetCooldown('${c.id}','${t.key}')">↺</button>` : ''}
         ${gm ? `<button class="icon-btn" title="Remove" onclick="removeTechnique('${c.id}','${t.key}',${t.custom})">✕</button>` : ''}
       </div>
@@ -297,8 +309,11 @@ async function useTechnique(charId, key) {
   else if (cd.perRest) updates[`characters/${charId}/cooldowns/${key}`] = 'rest';
   if (Object.keys(updates).length) await dbUpdate(updates);
   const r = parseRoll(t.roll);
-  if (r) await performRoll(charId, r.a, r.b, 0, t.name);
-  else { await logNote(c, `uses ${t.name}`); showToast(`${c.name} uses ${t.name}.`); }
+  if (r && digitalRolls()) { await performRoll(charId, r.a, r.b, 0, t.name); return; }
+  // Real dice: just remind the table what to roll.
+  const tn = r ? statValue(c, r.a) + statValue(c, r.b) : 0;
+  showToast(r ? `${c.name} uses ${t.name} — roll d20 at or under ${tn} (${STAT_LABEL(r.a)} + ${STAT_LABEL(r.b)}).` : `${c.name} uses ${t.name}.`);
+  if (digitalRolls()) await logNote(c, `uses ${t.name}`);
 }
 async function resetCooldown(charId, key) { await dbWrite(`characters/${charId}/cooldowns/${key}`, null); }
 async function restCharacter(charId) {
@@ -431,7 +446,7 @@ function sheetHtml(c) {
           ${c.lifeOverride ? `<div class="field"><label>Max LIFE</label><input type="number" value="${c.maxLife}" onchange="setField('${c.id}','maxLife',this.value,true)"></div>` : ''}` : ''}
       </div>
       <div class="panel">
-        <div class="panel-title">Moves <span class="sub">click to roll d20 ≤ TN</span></div>
+        <div class="panel-title">Moves <span class="sub">${digitalRolls() ? 'click to roll d20 ≤ TN' : 'roll a d20 at or under the TN'}</span></div>
         ${movesHtml(c)}
       </div>
     </div>

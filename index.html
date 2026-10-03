@@ -80,7 +80,8 @@
       <div class="campaign-name" id="header-campaign-name">Campaign</div>
     </div>
     <div class="session-info">
-      <button class="btn small" onclick="toggleRoller()" aria-controls="roller">🎲 Roll &amp; log</button>
+      <label class="chk dice-toggle" data-gm-only title="Off: the table rolls real dice and the sheet shows target numbers. On: players can roll in the app."><input type="checkbox" id="dice-toggle" onchange="setDigitalRolls(this.checked)"> Digital dice</label>
+      <button class="btn small hidden" id="roll-btn" onclick="toggleRoller()" aria-controls="roller">🎲 Roll &amp; log</button>
       <span class="role-badge hidden" id="demo-badge" style="color:var(--red-bright);border-color:var(--red-bright)">DEMO</span>
       <span class="role-badge" id="header-role-badge">—</span>
       <button class="btn small hidden" id="demo-reset-btn" onclick="resetDemoState()">Reset demo</button>

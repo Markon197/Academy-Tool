@@ -24,6 +24,10 @@ function renderAll() {
   renderItems();
   if (rollerOpen) renderRoller();
   applyRoleGating();
+  // in-app dice are optional (real dice by default)
+  document.getElementById('roll-btn')?.classList.toggle('hidden', !digitalRolls());
+  const dt = document.getElementById('dice-toggle');
+  if (dt) dt.checked = digitalRolls();
   const name = document.getElementById('header-campaign-name');
   if (name) name.textContent = state.campaignName;
   // players only have one character, so say so

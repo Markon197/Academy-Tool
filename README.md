@@ -27,6 +27,12 @@ PIN, and give each player their character's PIN.
 | Technique cooldowns / costs | Free text like `CD 2`, `Once per battle`, `Spend 1 Focus` is parsed and enforced |
 | Three Seals per mission | Ledger tab |
 
+### Real dice by default
+
+The table rolls physical dice. Sheets show each move's target number ("roll a d20 at or under 17")
+instead of roll buttons, and using a technique only applies its cost and cooldown. The GM can switch
+on in-app rolling with the **Digital dice** checkbox in the header (stored as `settings.digitalRolls`).
+
 ### House-rule setting
 
 "High success" and "Perfect success" are not precisely defined in the rule sheet. The tool treats a

@@ -92,7 +92,7 @@ function combatCardHtml(c, i, isGM, isCurrent, total) {
       <div>
         ${techs.length ? `<div class="sub bold">Techniques</div>${techs.map(t => {
           const cdn = cooldownLabel(c, t.key), cd = parseCooldown(t.cooldownCost);
-          return `<div class="tech-line ${cdn ? 'on-cd' : ''}"><div><strong>${escapeHtml(t.name)}</strong> <span class="sub">${[t.roll, t.cooldownCost].filter(Boolean).map(escapeHtml).join(' · ')}</span>${cdn ? ` <span class="cd-note">⏳ ${cdn}</span>` : ''}
+          return `<div class="tech-line ${cdn ? 'on-cd' : ''}"><div><strong>${escapeHtml(t.name)}</strong> <span class="sub">${[rollTagText(c, t), t.cooldownCost].filter(Boolean).map(escapeHtml).join(' · ')}</span>${cdn ? ` <span class="cd-note">⏳ ${cdn}</span>` : ''}
             <div class="desc">${escapeHtml(t.effect)}</div></div>
             ${canActAs(c.id) && !cd.passive ? `<button class="btn small" onclick="useTechnique('${c.id}','${t.key}')" ${cdn ? 'disabled' : ''}>Use</button>` : ''}</div>`;
         }).join('')}` : ''}
