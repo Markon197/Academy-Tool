@@ -84,10 +84,13 @@ function normaliseCharacter(c) {
   return c;
 }
 
-function initFirebase(dbUrl) {
+// Async: the previous app must be fully deleted before a new one with the same
+// name is created, otherwise its late cleanup can tear down the new connection
+// (seen as a hung second login after logging out in the same page).
+async function initFirebase(dbUrl) {
   try {
     if (typeof firebase === 'undefined') return false;
-    if (firebase.apps.length) firebase.apps[0].delete();
+    for (const a of firebase.apps.slice()) await a.delete();
     const app = firebase.initializeApp({ databaseURL: dbUrl }, 'academy');
     db = firebase.database(app);
     return true;

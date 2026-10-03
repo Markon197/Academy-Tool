@@ -66,7 +66,7 @@ async function doSetup() {
   const url = document.getElementById('setup-db-url').value.trim();
   const pin = document.getElementById('setup-gm-pin').value.trim();
   if (!url || !pin) { err.textContent = 'Database URL and GM PIN are required.'; return; }
-  if (!initFirebase(url)) { err.textContent = 'Could not connect to the database.'; return; }
+  if (!(await initFirebase(url))) { err.textContent = 'Could not connect to the database.'; return; }
   try {
     const existing = await dbRead();
     if (existing) { err.textContent = 'A campaign already exists at this URL. Use Login instead.'; return; }
@@ -96,7 +96,7 @@ async function doLogin() {
   const urlFieldVisible = !document.getElementById('login-db-url-field').classList.contains('hidden');
   if (urlFieldVisible) url = document.getElementById('login-db-url').value.trim();
   if (!url || !pin) { err.textContent = 'Database URL and PIN are required.'; return; }
-  if (!initFirebase(url)) { err.textContent = 'Could not connect to the database.'; return; }
+  if (!(await initFirebase(url))) { err.textContent = 'Could not connect to the database.'; return; }
   try {
     const data = await dbRead();
     if (!data) { err.textContent = 'No campaign found at this URL.'; return; }
