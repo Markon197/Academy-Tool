@@ -124,7 +124,7 @@
     <div id="ai-context" class="ai-context"></div>
     <div id="ai-log"></div>
     <div class="ai-input">
-      <textarea id="ai-text" rows="3" placeholder="Tell me what happened, or describe a character / place…  (Ctrl+Enter to send)" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();aiSend();}"></textarea>
+      <textarea id="ai-text" rows="3" placeholder="Tell me what happened, or describe a character / place…  (Enter to send, Shift+Enter for a new line)" onkeydown="if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();aiSend();}"></textarea>
       <button class="btn primary" id="ai-send" onclick="aiSend()">Send</button>
     </div>
   </aside>
