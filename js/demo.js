@@ -84,7 +84,7 @@ function seedDemoState() {
     gmNotes: PLACEHOLDER,
   }));
   const fad = withLife(mk({
-    name: 'Fad', player: 'Henry', pin: '3333', detention: 1,
+    name: 'Thad', player: 'Henry', pin: '3333', detention: 1,
     pillars: { body: 9, mind: 5, soul: 6 },
     skills: { force: 8, endurance: 7, reflex: 6, study: 4, logic: 5, craft: 4, will: 6, presence: 7, empathy: 3 },
     professorIds: ids([ironwell]), clubIds: ids([dueling, dungeonball]), talentRanks: rank(findBy(T, 'Backstabber')),

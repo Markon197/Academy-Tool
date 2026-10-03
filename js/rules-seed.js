@@ -51,9 +51,9 @@ const MISSION_LOOT_SEED = [
 ];
 
 // Seals recorded in the Mission Ledger so far (Back to School 2 doc; marks given as n/5).
-// "Thad" and "Dalston" in the doc are mapped to Fad and Dalton - confirm.
+// "Thad" and "Dalston" in the doc are Thad and Dalton (confirmed by the character sheets).
 const LEDGER_MISSION_1 = {
   name: 'Mission 1 — The Village That Dreams Tomorrow',
   notes: 'Choice: do they rat out Thad for hesitating to kill the demon? Detention: Rune Floor Scrubbing.',
-  grades: { Fad: [4, 4, 2], Lucien: [4, 3, 4], Drusilla: [4, 3, 3], Dalton: [4, 3, 5] }, // [mastery, method, conduct]
+  grades: { Thad: [4, 4, 2], Lucien: [4, 3, 4], Drusilla: [4, 3, 3], Dalton: [4, 3, 5] }, // [mastery, method, conduct]
 };

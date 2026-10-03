@@ -80,6 +80,9 @@ function normaliseCharacter(c) {
   c.techniques = c.techniques || {};
   c.cooldowns = c.cooldowns || {};
   c.inventory = c.inventory || {};
+  // free-form sheet sections (id-keyed maps so simultaneous edits don't clobber each other)
+  ['relationships', 'passives', 'activeTalents', 'sheetConditions', 'quick', 'discipline'].forEach(k => { c[k] = c[k] || {}; });
+  c.xp = Number(c.xp) || 0; c.xpMax = Number(c.xpMax) || 0; c.background = c.background || '';
   ['life', 'focus', 'energy', 'stress', 'ascension', 'ruin', 'detention'].forEach(k => { c[k] = Number(c[k]) || 0; });
   return c;
 }

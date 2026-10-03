@@ -166,5 +166,5 @@ function logRowHtml(r) {
     <div><strong>${escapeHtml(r.who)}</strong>${r.label ? ' · ' + escapeHtml(r.label) : ''}${r.rerolled ? ' ↻' : ''}<div class="lr-sub">${detail} · ${g.grade}</div></div></div>`;
 }
 
-// A non-roll entry for the table log ("Fad uses Cleaving Arc").
+// A non-roll entry for the table log ("Thad uses Cleaving Arc").
 function logNote(c, text) { return logRoll({ kind: 'note', charId: c.id, who: c.name, text }); }

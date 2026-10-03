@@ -43,10 +43,40 @@ function charTechniques(c) {
   return lib.concat(own);
 }
 
-// "Body + Force" -> "Body + Force · TN 17" using this character's stats
-function rollTagText(c, t) {
+// "Body + Force" -> "Body + Force · TN 17" using this character's stats (+ any technique bonus)
+function techTN(c, t) {
   const r = parseRoll(t.roll);
-  return r ? `${t.roll} · TN ${statValue(c, r.a) + statValue(c, r.b)}` : (t.roll || '');
+  return r ? statValue(c, r.a) + statValue(c, r.b) + (Number(t.bonus) || 0) : null;
+}
+function rollTagText(c, t) {
+  const tn = techTN(c, t);
+  return tn === null ? (t.roll || '') : `${t.roll}${t.bonus ? ` +${t.bonus}` : ''} · TN ${tn}`;
+}
+
+// ── Free-form sheet sections: Relationships, Passive/Active talents, Conditions ──
+// cols: [{ k, l, w }] key, label, relative width. GM edits inline; players read.
+function rowListHtml(c, field, cols) {
+  const gm = session.role === 'gm';
+  const rows = Object.values(c[field] || {}).sort((a, b) => (a.n || 0) - (b.n || 0));
+  const tpl = cols.map(x => (x.w || 1) + 'fr').join(' ') + (gm ? ' auto' : '');
+  return `<div class="rowlist">
+    ${rows.map(r => `<div class="rl-row" style="grid-template-columns:${tpl}">
+      ${cols.map(col => gm
+        ? `<input type="text" value="${escapeAttr(r[col.k])}" placeholder="${col.l}" aria-label="${col.l}" onchange="setRow('${c.id}','${field}','${r.id}','${col.k}',this.value)">`
+        : `<span class="${col.k === 'name' ? 'rl-name' : 'rl-text'}">${escapeHtml(r[col.k])}</span>`).join('')}
+      ${gm ? `<button class="icon-btn" onclick="delRow('${c.id}','${field}','${r.id}')" aria-label="Remove row">✕</button>` : ''}</div>`).join('') || '<div class="empty-state" style="padding:12px">Nothing here.</div>'}
+    ${gm ? `<button class="btn small" onclick="addRow('${c.id}','${field}')">+ Add row</button>` : ''}</div>`;
+}
+async function addRow(cid, field) { const id = uid(); await dbWrite(`characters/${cid}/${field}/${id}`, { id, n: Date.now() }); }
+async function setRow(cid, field, id, key, value) { await dbWrite(`characters/${cid}/${field}/${id}/${key}`, value); }
+async function delRow(cid, field, id) { await dbWrite(`characters/${cid}/${field}/${id}`, null); }
+
+const QUICK_FIELDS = [['fullName', 'Full name'], ['age', 'Age'], ['height', 'Height'], ['race', 'Race'], ['family', 'Family members'], ['other', 'Other']];
+function quickInfoHtml(c) {
+  const gm = session.role === 'gm', q = c.quick || {};
+  return QUICK_FIELDS.map(([k, l]) => gm
+    ? `<div class="field"><label>${l}</label><input type="text" value="${escapeAttr(q[k])}" onchange="setField('${c.id}','quick/${k}',this.value)"></div>`
+    : (q[k] ? `<div class="qi"><span class="sub">${l}</span> ${escapeHtml(q[k])}</div>` : '')).join('') || '<div class="empty-state" style="padding:12px">Nothing here.</div>';
 }
 
 function cooldownLabel(c, key) {
@@ -265,7 +295,8 @@ function techDraftHtml(c) {
     </div>
     <div class="grid cols-3">
       <div class="field"><label>Level</label><input type="number" value="${d.levelRequirement}" oninput="techDraft.levelRequirement=Number(this.value)||0"></div>
-      <div class="field" style="grid-column:span 2"><label>Roll (e.g. Body + Force)</label><input type="text" value="${escapeAttr(d.roll)}" oninput="techDraft.roll=this.value"></div>
+      <div class="field"><label>Roll (e.g. Body + Force)</label><input type="text" value="${escapeAttr(d.roll)}" oninput="techDraft.roll=this.value"></div>
+      <div class="field"><label>Roll bonus (+1…)</label><input type="number" value="${Number(d.bonus) || 0}" oninput="techDraft.bonus=Number(this.value)||0"></div>
     </div>
     <div class="field"><label>Effect</label><textarea oninput="techDraft.effect=this.value">${escapeHtml(d.effect)}</textarea></div>
     <div class="btn-row"><button class="btn primary small" onclick="saveTechDraft('${c.id}')">Add technique</button><button class="btn small" onclick="techDraft=null;renderCharacters()">Cancel</button></div>
@@ -309,9 +340,9 @@ async function useTechnique(charId, key) {
   else if (cd.perRest) updates[`characters/${charId}/cooldowns/${key}`] = 'rest';
   if (Object.keys(updates).length) await dbUpdate(updates);
   const r = parseRoll(t.roll);
-  if (r && digitalRolls()) { await performRoll(charId, r.a, r.b, 0, t.name); return; }
+  if (r && digitalRolls()) { await performRoll(charId, r.a, r.b, Number(t.bonus) || 0, t.name); return; }
   // Real dice: just remind the table what to roll.
-  const tn = r ? statValue(c, r.a) + statValue(c, r.b) : 0;
+  const tn = techTN(c, t) || 0;
   showToast(r ? `${c.name} uses ${t.name} — roll d20 at or under ${tn} (${STAT_LABEL(r.a)} + ${STAT_LABEL(r.b)}).` : `${c.name} uses ${t.name}.`);
   if (digitalRolls()) await logNote(c, `uses ${t.name}`);
 }
@@ -426,6 +457,12 @@ function sheetHtml(c) {
         ${f('Archetype', gm ? `<select onchange="setField('${c.id}','archetypeId',this.value)"><option value="">— none —</option>${archList.map(a => `<option value="${a.id}" ${a.id === c.archetypeId ? 'selected' : ''}>${escapeHtml(a.name)}</option>`).join('')}</select>` : `<div>${arch ? escapeHtml(arch.name) : '—'}</div>`)}
         ${gm && !c.isNPC ? f('Player PIN (login)', `<input type="text" maxlength="8" value="${escapeAttr(c.pin)}" onchange="setField('${c.id}','pin',this.value)">`) : ''}
       </div>
+      <div class="grid cols-2">
+        ${f('Background', inpText('background'))}
+        ${f('Experience points', gm
+          ? `<div class="inline"><input type="number" min="0" value="${c.xp}" onchange="setField('${c.id}','xp',this.value,true)" aria-label="XP"> <span>/</span> <input type="number" min="0" value="${c.xpMax}" onchange="setField('${c.id}','xpMax',this.value,true)" aria-label="XP needed"></div>`
+          : `<div>${c.xp} / ${c.xpMax}</div>`)}
+      </div>
       ${arch ? `<div class="origin"><strong>${escapeHtml(arch.talent)}</strong> <span class="tag">Advantage</span><div class="desc">${escapeHtml(arch.advantage)}</div><div class="desc"><span class="tag danger">Condition</span> <strong>${escapeHtml(arch.condition)}</strong>${arch.conditionText ? ' — ' + escapeHtml(arch.conditionText) : ''}</div></div>` : ''}
     </div>
 
@@ -462,9 +499,25 @@ function sheetHtml(c) {
     </div>
 
     <div class="grid cols-2">
-      <div class="panel"><div class="panel-title">Discipline &amp; Clubs</div>${originsHtml(c)}</div>
+      <div class="panel"><div class="panel-title">Discipline &amp; Clubs</div>
+        ${[['oath', 'Oath'], ['taboo', 'Taboo']].map(([k, l]) => gm
+          ? `<div class="field"><label>${l}</label><input type="text" value="${escapeAttr((c.discipline || {})[k])}" onchange="setField('${c.id}','discipline/${k}',this.value)"></div>`
+          : ((c.discipline || {})[k] ? `<div class="origin"><strong>${l}:</strong> ${escapeHtml(c.discipline[k])}</div>` : '')).join('')}
+        ${originsHtml(c)}</div>
       <div class="panel"><div class="panel-title">Inventory</div>${inventoryHtml(c)}</div>
     </div>
+
+    <div class="grid cols-2">
+      <div class="panel"><div class="panel-title">Passive talents</div>${rowListHtml(c, 'passives', [{ k: 'name', l: 'Talent', w: 2 }, { k: 'level', l: 'L', w: 0.5 }, { k: 'effect', l: 'Effect', w: 4 }])}</div>
+      <div class="panel"><div class="panel-title">Active talents</div>${rowListHtml(c, 'activeTalents', [{ k: 'name', l: 'Talent', w: 2 }, { k: 'effect', l: 'Effect', w: 4 }])}</div>
+    </div>
+
+    <div class="grid cols-2">
+      <div class="panel"><div class="panel-title">Conditions</div>${rowListHtml(c, 'sheetConditions', [{ k: 'name', l: 'Condition', w: 2 }, { k: 'effect', l: 'Effect', w: 4 }])}</div>
+      <div class="panel"><div class="panel-title">Relationships</div>${rowListHtml(c, 'relationships', [{ k: 'name', l: 'Who', w: 2 }, { k: 'note', l: 'Notes', w: 4 }])}</div>
+    </div>
+
+    <div class="panel"><div class="panel-title">Quick info</div><div class="grid cols-3">${quickInfoHtml(c)}</div></div>
 
     <div class="grid cols-2">
       <div class="panel"><div class="panel-title">Notes</div>
