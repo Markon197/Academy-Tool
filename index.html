@@ -97,6 +97,7 @@
     <button data-view="view-curriculum" onclick="switchView('view-curriculum')">Curriculum</button>
     <button data-view="view-ledger" onclick="switchView('view-ledger')">Ledger</button>
     <button data-view="view-items" data-gm-only onclick="switchView('view-items')">Items</button>
+    <button data-view="view-world" data-gm-only onclick="switchView('view-world')">World</button>
   </nav>
 
   <main>
@@ -105,6 +106,7 @@
     <div id="view-curriculum" class="view"><div id="curriculum-root"></div></div>
     <div id="view-ledger" class="view"><div id="ledger-root"></div></div>
     <div id="view-items" class="view"><div id="items-root"></div></div>
+    <div id="view-world" class="view"><div id="world-root"></div></div>
   </main>
 
   <aside id="roller" aria-label="Dice roller and table log">
@@ -114,6 +116,17 @@
   <aside id="notices" aria-label="Notice board">
     <div class="roller-head"><span>🔔 Notice board</span><button class="icon-btn" onclick="toggleNotices()" aria-label="Close">✕</button></div>
     <div id="notices-body"></div>
+  </aside>
+  <button id="ai-bubble" class="ai-bubble" data-gm-only onclick="toggleAI()" aria-controls="ai-panel" aria-label="Campaign assistant" title="Campaign assistant">✨</button>
+  <aside id="ai-panel" aria-label="Campaign assistant">
+    <div class="roller-head"><span>✨ Campaign assistant</span>
+      <span class="inline"><button class="icon-btn" onclick="aiClear()" title="Clear conversation" aria-label="Clear conversation">⌫</button><button class="icon-btn" onclick="aiShowSettings()" title="API key &amp; model" aria-label="Settings">⚙</button><button class="icon-btn" onclick="toggleAI()" aria-label="Close">✕</button></span></div>
+    <div id="ai-context" class="ai-context"></div>
+    <div id="ai-log"></div>
+    <div class="ai-input">
+      <textarea id="ai-text" rows="3" placeholder="Tell me what happened, or describe a character / place…  (Ctrl+Enter to send)" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();aiSend();}"></textarea>
+      <button class="btn primary" id="ai-send" onclick="aiSend()">Send</button>
+    </div>
   </aside>
   <div id="roll-result" class="roll-result" role="status" aria-live="polite"></div>
 </div>
@@ -137,6 +150,8 @@
 <script src="js/curriculum.js"></script>
 <script src="js/ledger.js"></script>
 <script src="js/items.js"></script>
+<script src="js/world.js"></script>
+<script src="js/ai.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

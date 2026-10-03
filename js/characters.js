@@ -176,9 +176,10 @@ async function newCharacter(isNPC) {
   await dbWrite('characters/' + c.id, c);
   openCharId = c.id;
   renderCharacters();
+  pushNav();
 }
-function openChar(id) { openCharId = id; techDraft = null; renderCharacters(); window.scrollTo(0, 0); }
-function closeChar() { openCharId = null; techDraft = null; renderCharacters(); }
+function openChar(id) { openCharId = id; techDraft = null; renderCharacters(); window.scrollTo(0, 0); pushNav(); }
+function closeChar() { openCharId = null; techDraft = null; renderCharacters(); pushNav(); }
 
 async function deleteCharacter(id) {
   const c = state.characters[id];

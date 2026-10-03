@@ -12,7 +12,7 @@ let demoMode = false;
 
 // Every collection that is synced. Firebase drops empty objects/arrays, so
 // each one gets a default when it comes back missing.
-const COLLECTIONS = ['characters', 'professors', 'clubs', 'talents', 'skills', 'archetypes', 'items', 'missions', 'rolls', 'activity'];
+const COLLECTIONS = ['characters', 'professors', 'clubs', 'talents', 'skills', 'archetypes', 'items', 'missions', 'rolls', 'activity', 'world'];
 
 function blankCombat() {
   return { active: false, round: 1, turn: 0, ambush: false, order: [], actions: {} };
@@ -32,6 +32,7 @@ let state = {
   missions: {},     // id -> { name, notes, seals: { charId: { mastery, method, conduct } } }
   rolls: {},        // id -> roll log entry (shared table log)
   activity: {},     // id -> change a player made (shown to the GM as notices)
+  world: {},        // id -> places, factions, lore (GM only)
   combat: blankCombat(),
 };
 
