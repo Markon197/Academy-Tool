@@ -4,8 +4,18 @@
 
 const VIEWS = ['view-characters', 'view-combat', 'view-curriculum', 'view-ledger', 'view-items'];
 
+// Items is GM-only. Combat is hidden from players until the GM ticks "Combat for players".
+function viewAllowed(viewId) {
+  if (!VIEWS.includes(viewId)) return false;
+  if (session.role === 'gm') return true;
+  if (viewId === 'view-items') return false;
+  if (viewId === 'view-combat') return !!state.settings?.playerCombat;
+  return true;
+}
+async function setPlayerCombat(on) { await dbWrite('settings/playerCombat', !!on); }
+
 function switchView(viewId) {
-  if (!VIEWS.includes(viewId) || (viewId === 'view-items' && session.role !== 'gm')) viewId = 'view-characters';
+  if (!viewAllowed(viewId)) viewId = 'view-characters';
   document.querySelectorAll('#tabs > button[data-view]').forEach(b => {
     const on = b.dataset.view === viewId;
     b.classList.toggle('active', on);
@@ -28,6 +38,12 @@ function renderAll() {
   document.getElementById('roll-btn')?.classList.toggle('hidden', !digitalRolls());
   const dt = document.getElementById('dice-toggle');
   if (dt) dt.checked = digitalRolls();
+  const showCombat = viewAllowed('view-combat');
+  document.getElementById('tab-combat')?.classList.toggle('hidden', !showCombat);
+  const ct = document.getElementById('combat-toggle');
+  if (ct) ct.checked = !!state.settings?.playerCombat;
+  // a player who is on the Combat tab when the GM hides it gets moved off it
+  if (!showCombat && document.getElementById('view-combat').classList.contains('active')) switchView('view-characters');
   const name = document.getElementById('header-campaign-name');
   if (name) name.textContent = state.campaignName;
   // players only have one character, so say so

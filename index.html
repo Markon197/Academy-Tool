@@ -80,6 +80,7 @@
       <div class="campaign-name" id="header-campaign-name">Campaign</div>
     </div>
     <div class="session-info">
+      <label class="chk dice-toggle" data-gm-only title="Off: players don't see the Combat tab."><input type="checkbox" id="combat-toggle" onchange="setPlayerCombat(this.checked)"> Combat for players</label>
       <label class="chk dice-toggle" data-gm-only title="Off: the table rolls real dice and the sheet shows target numbers. On: players can roll in the app."><input type="checkbox" id="dice-toggle" onchange="setDigitalRolls(this.checked)"> Digital dice</label>
       <button class="btn small hidden" id="roll-btn" onclick="toggleRoller()" aria-controls="roller">🎲 Roll &amp; log</button>
       <span class="role-badge hidden" id="demo-badge" style="color:var(--red-bright);border-color:var(--red-bright)">DEMO</span>
@@ -91,7 +92,7 @@
 
   <nav id="tabs" role="tablist">
     <button data-view="view-characters" id="tab-characters" onclick="switchView('view-characters')">Characters</button>
-    <button data-view="view-combat" onclick="switchView('view-combat')">Combat</button>
+    <button data-view="view-combat" id="tab-combat" onclick="switchView('view-combat')">Combat</button>
     <button data-view="view-curriculum" onclick="switchView('view-curriculum')">Curriculum</button>
     <button data-view="view-ledger" onclick="switchView('view-ledger')">Ledger</button>
     <button data-view="view-items" data-gm-only onclick="switchView('view-items')">Items</button>
