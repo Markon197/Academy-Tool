@@ -100,11 +100,13 @@ async function doLogin() {
   try {
     const data = await dbRead();
     if (!data) { err.textContent = 'No campaign found at this URL.'; return; }
-    if (data.gmPin && atob(data.gmPin) === pin) {
+    // PINs are compared ignoring case, so "henry" works as well as "Henry"
+    const same = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+    if (data.gmPin && same(atob(data.gmPin), pin)) {
       session = { role: 'gm', charId: null };
     } else {
       const chars = data.characters || {};
-      const found = Object.values(chars).find(c => c.pin && c.pin === pin);
+      const found = Object.values(chars).find(c => c.pin && same(c.pin, pin));
       if (!found) { err.textContent = 'Wrong PIN. Try again.'; return; }
       session = { role: 'player', charId: found.id };
     }
