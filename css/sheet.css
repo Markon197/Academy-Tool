@@ -208,3 +208,24 @@ select.seal-broken { color: var(--red-bright); }
 .ai-input { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border-gold); align-items: flex-end; }
 .ai-input textarea { min-height: 64px; flex: 1; }
 .ai-input .btn { min-height: 44px; }
+
+/* story status tags */
+.tag.status-alive { color: var(--green-bright); border-color: var(--green-bright); }
+.tag.status-injured { color: #e8b454; border-color: #e8b454; }
+.tag.status-missing { color: var(--purple-bright); border-color: var(--purple-bright); }
+.tag.status-captured { color: var(--blue-bright); border-color: var(--blue-bright); }
+.tag.status-dead { color: var(--red-bright); border-color: var(--red-bright); background: rgba(224,84,108,.15); }
+.tag.status-unknown { color: var(--text3); border-color: var(--text3); }
+.tag.on-card.status-alive { color: #1f5a2c; border-color: #1f5a2c; }
+.tag.on-card.status-injured { color: #7a5200; border-color: #7a5200; }
+.tag.on-card.status-missing { color: #5a2f8a; border-color: #5a2f8a; }
+.tag.on-card.status-captured { color: #1f4a8a; border-color: #1f4a8a; }
+.tag.on-card.status-dead { color: #8a1f2f; border-color: #8a1f2f; }
+.tag.on-card.status-unknown { color: #6b5a38; border-color: #6b5a38; }
+
+/* bigger notes + GM notes, kept near the top of the sheet */
+textarea.notes-box { min-height: 260px; font-size: 15px; line-height: 1.6; padding: 12px 14px; resize: vertical; overflow: hidden; }
+textarea.notes-box:disabled { color: var(--text); opacity: 1; }
+.notes-gm { border-color: var(--border-gold); background: linear-gradient(180deg, #2a1d1a, var(--surface)); }
+.note-preview { margin-top: 3px; color: var(--text2); font-style: italic; }
+.combat-gmnote { margin-top: 6px; font-size: 12px; color: #6b2a2a; background: rgba(139,31,47,.08); border-left: 3px solid #8a1f2f; padding: 4px 8px; border-radius: 0 var(--radius) var(--radius) 0; }

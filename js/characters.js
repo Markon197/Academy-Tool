@@ -14,6 +14,7 @@
 
 let openCharId = null;      // GM: which sheet is open
 let charFilter = 'all';     // 'all' | 'pc' | 'npc'
+let charStatusFilter = '';  // '' = any story status
 let charSearch = '';
 let showAllMoves = false;
 let techDraft = null;       // GM: custom technique being written
@@ -27,7 +28,7 @@ function canEdit(c, field) {
 
 function blankCharacter(isNPC) {
   const c = normaliseCharacter({
-    id: uid(), name: '', isNPC, player: '', year: 1, level: 1,
+    id: uid(), name: '', isNPC, player: '', year: 1, level: 1, status: 'Alive',
     focus: isNPC ? 0 : 1, energy: isNPC ? 0 : 5, stress: 0, ascension: 0, ruin: 0, detention: 0,
     archetypeId: '', professorIds: [], clubIds: [], skillIds: [], unlockedIds: [],
     talentRanks: {}, techniques: {}, inventory: {}, notes: '', gmNotes: '', pin: '',
@@ -130,13 +131,15 @@ function renderCharacters() {
   if (session.role === 'player') {
     const c = state.characters[session.charId];
     root.innerHTML = c ? sheetHtml(c) : '<div class="empty-state">No character found.</div>';
+    autosizeAllNotes();
     return;
   }
   if (openCharId && !state.characters[openCharId]) openCharId = null;
-  if (openCharId) { root.innerHTML = sheetHtml(state.characters[openCharId]); return; }
+  if (openCharId) { root.innerHTML = sheetHtml(state.characters[openCharId]); autosizeAllNotes(); return; }
 
   const list = Object.values(state.characters)
     .filter(c => charFilter === 'all' || (charFilter === 'pc' && !c.isNPC) || (charFilter === 'npc' && c.isNPC))
+    .filter(c => !charStatusFilter || c.status === charStatusFilter)
     .filter(c => !charSearch || c.name.toLowerCase().includes(charSearch.toLowerCase()) || (c.player || '').toLowerCase().includes(charSearch.toLowerCase()))
     .sort((a, b) => (a.isNPC - b.isNPC) || a.name.localeCompare(b.name));
 
@@ -151,11 +154,15 @@ function renderCharacters() {
           <option value="pc" ${charFilter === 'pc' ? 'selected' : ''}>PCs only</option>
           <option value="npc" ${charFilter === 'npc' ? 'selected' : ''}>NPCs only</option>
         </select></div>
+      <div class="field"><label>Status</label>
+        <select onchange="charStatusFilter=this.value;renderCharacters()"><option value="">Any</option>${CHAR_STATUSES.map(s => `<option ${charStatusFilter === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
       <div class="btn-row"><button class="btn primary" onclick="newCharacter(false)">+ New PC</button><button class="btn" onclick="newCharacter(true)">+ New NPC</button></div>
     </div>
     ${list.length ? list.map(rosterItemHtml).join('') : '<div class="empty-state">No characters yet — create one to get started.</div>'}
   </div>`;
 }
+
+function notePreview(s, n) { s = (s || '').replace(/\s+/g, ' ').trim(); n = n || 130; return s.length > n ? s.slice(0, n - 1) + '…' : s; }
 
 function rosterItemHtml(c) {
   const st = lifeStatus(c);
@@ -163,8 +170,9 @@ function rosterItemHtml(c) {
   return `
   <div class="roster-item" onclick="openChar('${c.id}')">
     <div>
-      <div class="name">${escapeHtml(c.name || '(unnamed)')} ${c.isNPC ? '<span class="tag">NPC</span>' : '<span class="tag">PC</span>'}${st !== 'ok' ? `<span class="tag danger">${st === 'dead' ? 'Dead' : 'Down'}</span>` : ''}</div>
+      <div class="name">${escapeHtml(c.name || '(unnamed)')} ${c.isNPC ? '<span class="tag">NPC</span>' : '<span class="tag">PC</span>'}${statusTagHtml(c, true)}${st !== 'ok' ? `<span class="tag danger">${st === 'dead' ? 'LIFE: dead' : 'Down'}</span>` : ''}</div>
       <div class="meta">${c.player ? 'Player: ' + escapeHtml(c.player) + ' · ' : ''}${c.year ? 'Year ' + c.year + ' · ' : ''}Lvl ${c.level} · Life ${c.life}/${lifeMax(c)} · Focus ${c.focus} · Stress ${c.stress}${arch ? ' · ' + escapeHtml(arch.name) : ''}</div>
+      ${c.gmNotes ? `<div class="meta note-preview"><strong>GM:</strong> ${escapeHtml(notePreview(c.gmNotes))}</div>` : (c.notes ? `<div class="meta note-preview">${escapeHtml(notePreview(c.notes))}</div>` : '')}
     </div>
     <button class="icon-btn" onclick="event.stopPropagation();deleteCharacter('${c.id}')" title="Delete" aria-label="Delete ${escapeAttr(c.name)}">✕</button>
   </div>`;
@@ -458,14 +466,15 @@ function sheetHtml(c) {
     ${gm ? `<div class="btn-row" style="margin-bottom:10px"><button class="btn small" onclick="closeChar()">← All characters</button><button class="btn small danger" onclick="deleteCharacter('${c.id}')">Delete</button></div>` : ''}
 
     <div class="panel">
-      <div class="panel-title"><span>${escapeHtml(c.name || '(unnamed)')}${c.isNPC ? '<span class="tag">NPC</span>' : '<span class="tag">PC</span>'}</span></div>
+      <div class="panel-title"><span>${escapeHtml(c.name || '(unnamed)')}${c.isNPC ? '<span class="tag">NPC</span>' : '<span class="tag">PC</span>'}${statusTagHtml(c, true)}</span></div>
       <div class="grid cols-4">
         ${f('Name', inpText('name'))}
         ${f(c.isNPC ? 'Role' : 'Player', inpText('player', c.isNPC ? '' : 'Real name'))}
         ${f('Year', inpNum('year'))}
         ${f('Level', inpNum('level', 1))}
       </div>
-      <div class="grid cols-2">
+      <div class="grid cols-3">
+        ${f('Status', statusFieldHtml(c))}
         ${f('Archetype', gm ? `<select onchange="setField('${c.id}','archetypeId',this.value)"><option value="">— none —</option>${archList.map(a => `<option value="${a.id}" ${a.id === c.archetypeId ? 'selected' : ''}>${escapeHtml(a.name)}</option>`).join('')}</select>` : `<div>${arch ? escapeHtml(arch.name) : '—'}</div>`)}
         ${gm && !c.isNPC ? f('Player PIN (login)', `<input type="text" maxlength="8" value="${escapeAttr(c.pin)}" onchange="setField('${c.id}','pin',this.value)">`) : ''}
       </div>
@@ -501,6 +510,8 @@ function sheetHtml(c) {
       </div>
     </div>
 
+    ${notesHtml(c)}
+
     <div class="panel">
       <div class="panel-title">Pillars &amp; Skills</div>
       ${pillarsHtml(c)}
@@ -531,12 +542,32 @@ function sheetHtml(c) {
     </div>
 
     <div class="panel"><div class="panel-title">Quick info</div><div class="grid cols-3">${quickInfoHtml(c)}</div></div>
-
-    <div class="grid cols-2">
-      <div class="panel"><div class="panel-title">Notes</div>
-        <textarea ${gm ? '' : 'disabled'} onchange="setField('${c.id}','notes',this.value)" placeholder="Background, traits, goals…">${escapeHtml(c.notes)}</textarea></div>
-      ${gm ? `<div class="panel"><div class="panel-title">GM notes <span class="tag danger">GM only</span></div>
-        <textarea onchange="setField('${c.id}','gmNotes',this.value)" placeholder="Secrets, plans, to-dos…">${escapeHtml(c.gmNotes)}</textarea></div>` : ''}
-    </div>
   </div>`;
+}
+
+// Notes and GM notes sit right under the vitals (not buried at the bottom) and are big
+// enough to actually write in. They grow with their content.
+function notesHtml(c) {
+  const gm = session.role === 'gm';
+  return `
+    <div class="${gm ? 'grid cols-2' : ''}">
+      <div class="panel"><div class="panel-title">Notes ${gm ? '<span class="sub">visible to the player</span>' : ''}</div>
+        <textarea class="notes-box" ${gm ? '' : 'disabled'} oninput="autosizeNote(this)" onchange="setField('${c.id}','notes',this.value)" placeholder="What the character knows, traits, goals, what happened…">${escapeHtml(c.notes)}</textarea></div>
+      ${gm ? `<div class="panel notes-gm"><div class="panel-title">GM notes <span class="tag danger">GM only</span></div>
+        <textarea class="notes-box" oninput="autosizeNote(this)" onchange="setField('${c.id}','gmNotes',this.value)" placeholder="Secrets, plans, hooks, things to remember…">${escapeHtml(c.gmNotes)}</textarea></div>` : ''}
+    </div>`;
+}
+function autosizeNote(el) { el.style.height = 'auto'; el.style.height = Math.max(el.scrollHeight + 4, 260) + 'px'; }
+function autosizeAllNotes() { document.querySelectorAll('textarea.notes-box').forEach(autosizeNote); }
+
+// Story status tag. showAlive=false hides the "Alive" tag where it would just be noise.
+function statusTagHtml(c, showAlive) {
+  const s = c.status || 'Alive';
+  return (s === 'Alive' && !showAlive) ? '' : `<span class="tag ${statusClass(s)}">${escapeHtml(s)}</span>`;
+}
+function statusFieldHtml(c) {
+  if (session.role !== 'gm') return `<div>${statusTagHtml(c, true)}</div>`;
+  const hint = lifeStatus(c) === 'dead' && c.status !== 'Dead'
+    ? `<button class="btn small danger" style="margin-top:6px" onclick="setField('${c.id}','status','Dead')">LIFE says dead — mark as Dead</button>` : '';
+  return `<select onchange="setField('${c.id}','status',this.value)">${CHAR_STATUSES.map(s => `<option ${c.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select>${hint}`;
 }

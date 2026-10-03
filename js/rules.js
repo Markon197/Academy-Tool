@@ -147,3 +147,9 @@ function parseCooldown(text) {
 function escapeHtml(s) { return (s ?? '').toString().replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])); }
 function escapeAttr(s) { return escapeHtml(s); }
 function pct(v, max) { if (!max) return 0; return Math.max(0, Math.min(100, Math.round((v / max) * 100))); }
+
+// ── Story status: a tag the GM sets by hand. Separate from the automatic
+//    Downed/Dead that LIFE triggers — someone can be Missing or Captured with
+//    plenty of LIFE left. ──
+const CHAR_STATUSES = ['Alive', 'Injured', 'Missing', 'Captured', 'Dead', 'Unknown'];
+function statusClass(s) { return 'status-' + String(s || 'Alive').toLowerCase(); }

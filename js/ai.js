@@ -46,6 +46,7 @@ const AI_TOOLS = [
   { name: 'set_quick_info', description: 'Set one Quick info field on a character.', input_schema: { type: 'object', properties: { character: CHAR_PROP, field: { type: 'string', enum: ['fullName', 'age', 'height', 'race', 'family', 'other'] }, value: { type: 'string' } }, required: ['character', 'field', 'value'] } },
   { name: 'add_technique', description: 'Add a technique to a character.', input_schema: { type: 'object', properties: { character: CHAR_PROP, name: { type: 'string' }, roll: { type: 'string', description: 'e.g. "Soul + Presence"' }, bonus: { type: 'number' }, cooldown: { type: 'string', description: 'e.g. "CD 2", "Once per combat", "Spend 1 Focus"' }, origin: { type: 'string' }, effect: { type: 'string' } }, required: ['character', 'name'] } },
   { name: 'adjust_counter', description: 'Change a character counter: life, focus, energy, stress, ascension, ruin, detention (hours) or xp.', input_schema: { type: 'object', properties: { character: CHAR_PROP, field: { type: 'string', enum: ['life', 'focus', 'energy', 'stress', 'ascension', 'ruin', 'detention', 'xp'] }, mode: { type: 'string', enum: ['set', 'add'] }, value: { type: 'number' } }, required: ['character', 'field', 'mode', 'value'] } },
+  { name: 'set_character_status', description: 'Set a character story status tag (Alive, Injured, Missing, Captured, Dead, Unknown).', input_schema: { type: 'object', properties: { character: CHAR_PROP, status: { type: 'string', enum: ['Alive', 'Injured', 'Missing', 'Captured', 'Dead', 'Unknown'] } }, required: ['character', 'status'] } },
   { name: 'add_status_condition', description: 'Add a temporary status chip (prone, held, -2 on rolls…) to a character, shown in combat.', input_schema: { type: 'object', properties: { character: CHAR_PROP, text: { type: 'string' } }, required: ['character', 'text'] } },
   { name: 'upsert_world_entry', description: 'Create or update a World entry (place, faction, NPC write-up, event, lore).', input_schema: { type: 'object', properties: { name: { type: 'string' }, kind: { type: 'string', enum: ['Place', 'Faction', 'NPC', 'Event', 'Lore', 'Other'] }, text: { type: 'string' }, mode: { type: 'string', enum: ['append', 'replace'], description: 'append to an existing entry of that name, or replace its text' } }, required: ['name', 'kind', 'text'] } },
   { name: 'append_mission_note', description: 'Append to the notes of a mission in the Ledger.', input_schema: { type: 'object', properties: { mission: { type: 'string', description: 'Mission name (or part of it)' }, text: { type: 'string' } }, required: ['mission', 'text'] } },
@@ -55,7 +56,7 @@ const AI_TOOLS = [
 function aiCompactChar(c) {
   const list = m => Object.values(m || {}).sort((a, b) => (a.n || 0) - (b.n || 0));
   return {
-    name: c.name, player: c.player, npc: c.isNPC, level: c.level, year: c.year, xp: `${c.xp}/${c.xpMax}`,
+    name: c.name, player: c.player, npc: c.isNPC, status: c.status, level: c.level, year: c.year, xp: `${c.xp}/${c.xpMax}`,
     archetype: state.archetypes[c.archetypeId]?.name || null, background: c.background,
     life: `${c.life}/${lifeMax(c)}`, focus: c.focus, energy: c.energy, stress: c.stress, ascension: c.ascension, ruin: c.ruin, detentionHours: c.detention,
     pillars: c.pillars, skills: c.skills,
@@ -82,7 +83,7 @@ function aiContext() {
   const v = currentView().replace('view-', '');
   const ctx = {
     screen: aiContextLabel(),
-    roster: Object.values(state.characters).map(c => ({ name: c.name, npc: !!c.isNPC, player: c.player || undefined })),
+    roster: Object.values(state.characters).map(c => ({ name: c.name, npc: !!c.isNPC, status: c.status, player: c.player || undefined })),
     missions: Object.values(state.missions || {}).sort((a, b) => (a.order || 0) - (b.order || 0)).map(m => m.name),
     worldEntries: Object.values(state.world || {}).map(e => ({ name: e.name, kind: e.kind })),
   };
@@ -263,6 +264,11 @@ function aiPlanAction(tu) {
         next = f === 'life' ? Math.min(lifeMax(state.characters[c.id]), next) : Math.max(0, next);
         return dbWrite(`characters/${c.id}/${f}`, next);
       };
+      break; }
+    case 'set_character_status': {
+      const c = needChar(); act.text = `${c ? c.name : i.character} — status: ${i.status}`;
+      if (!CHAR_STATUSES.includes(i.status)) act.error = 'unknown status';
+      else if (c) act.run = () => dbWrite(`characters/${c.id}/status`, i.status);
       break; }
     case 'add_status_condition': {
       const c = needChar(); act.text = `${c ? c.name : i.character} — status: ${i.text}`;

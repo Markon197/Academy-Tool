@@ -71,7 +71,9 @@ function combatCardHtml(c, i, isGM, isCurrent, total) {
       <button class="icon-btn" onclick="removeFromCombat('${c.id}')" aria-label="Remove from combat">✕</button></div>` : ''}
     <h3>${isCurrent ? '▶ ' : ''}${escapeHtml(c.name)} ${c.isNPC ? '<span class="tag on-card">NPC</span>' : '<span class="tag on-card">PC</span>'}
       <span class="sub">Lvl ${c.level} · Init ${initiativeScore(c)}</span>
+      ${statusTagHtml(c, false).replace('class="tag ', 'class="tag on-card ')}
       ${st === 'downed' ? '<span class="tag on-card danger">DOWNED</span>' : st === 'dead' ? '<span class="tag on-card danger">DEAD</span>' : ''}</h3>
+    ${isGM && c.gmNotes ? `<div class="combat-gmnote"><strong>GM:</strong> ${escapeHtml(notePreview(c.gmNotes, 220))}</div>` : ''}
     ${state.combat.active ? actionPips(c) : ''}
     <div class="grid cols-2" style="margin-top:10px">
       <div>
