@@ -9,6 +9,8 @@
 function savedDbUrl() { return localStorage.getItem('academy_db_url') || (typeof DEFAULT_DB_URL !== 'undefined' ? DEFAULT_DB_URL : ''); }
 
 function showSetupScreen() {
+  const urlInput = document.getElementById('setup-db-url');
+  if (urlInput && !urlInput.value) urlInput.value = savedDbUrl();
   document.getElementById('setup-screen').classList.remove('hidden');
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app-root').classList.add('hidden');
@@ -129,6 +131,7 @@ function doLogout() {
 function initAuthOnLoad() {
   // Demo mode (public sample data) is hidden unless the URL has ?demo
   if (new URLSearchParams(location.search).has('demo')) document.querySelectorAll('.demo-box').forEach(el => el.classList.remove('hidden'));
-  const savedUrl = savedDbUrl();
-  if (savedUrl) showLoginScreen(); else showSetupScreen();
+  // Players are the common case, so always land on login; the GM uses the
+  // "Set up a new campaign" link there the first time.
+  showLoginScreen();
 }

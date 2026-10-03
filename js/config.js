@@ -1,4 +1,4 @@
-// Campaign database for this deployment.
-// Paste your Firebase Realtime Database URL here (e.g. "https://my-campaign-default-rtdb.firebaseio.com")
-// and players will only have to enter their PIN to log in. Leave empty to be asked for it instead.
+// Optional: set a default campaign database URL for this deployment.
+// Left empty on purpose: this repo is public, so each device pastes the URL once on the
+// login screen (it is then remembered in that browser) and after that only needs a PIN.
 const DEFAULT_DB_URL = '';
