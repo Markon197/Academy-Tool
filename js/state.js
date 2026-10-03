@@ -87,6 +87,7 @@ function normaliseCharacter(c) {
   ['relationships', 'passives', 'activeTalents', 'sheetConditions', 'quick', 'discipline'].forEach(k => { c[k] = c[k] || {}; });
   c.xp = Number(c.xp) || 0; c.xpMax = Number(c.xpMax) || 0; c.background = c.background || '';
   c.status = c.status || 'Alive';
+  c.faction = c.faction || '';
   ['life', 'focus', 'energy', 'stress', 'ascension', 'ruin', 'detention'].forEach(k => { c[k] = Number(c[k]) || 0; });
   return c;
 }

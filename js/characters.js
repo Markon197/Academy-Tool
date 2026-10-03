@@ -15,6 +15,7 @@
 let openCharId = null;      // GM: which sheet is open
 let charFilter = 'all';     // 'all' | 'pc' | 'npc'
 let charStatusFilter = '';  // '' = any story status
+let charFactionFilter = ''; // '' = any faction
 let charSearch = '';
 let showAllMoves = false;
 let techDraft = null;       // GM: custom technique being written
@@ -28,7 +29,7 @@ function canEdit(c, field) {
 
 function blankCharacter(isNPC) {
   const c = normaliseCharacter({
-    id: uid(), name: '', isNPC, player: '', year: 1, level: 1, status: 'Alive',
+    id: uid(), name: '', isNPC, player: '', year: 1, level: 1, status: 'Alive', faction: '',
     focus: isNPC ? 0 : 1, energy: isNPC ? 0 : 5, stress: 0, ascension: 0, ruin: 0, detention: 0,
     archetypeId: '', professorIds: [], clubIds: [], skillIds: [], unlockedIds: [],
     talentRanks: {}, techniques: {}, inventory: {}, notes: '', gmNotes: '', pin: '',
@@ -140,6 +141,7 @@ function renderCharacters() {
   const list = Object.values(state.characters)
     .filter(c => charFilter === 'all' || (charFilter === 'pc' && !c.isNPC) || (charFilter === 'npc' && c.isNPC))
     .filter(c => !charStatusFilter || c.status === charStatusFilter)
+    .filter(c => !charFactionFilter || c.faction === charFactionFilter)
     .filter(c => !charSearch || c.name.toLowerCase().includes(charSearch.toLowerCase()) || (c.player || '').toLowerCase().includes(charSearch.toLowerCase()))
     .sort((a, b) => (a.isNPC - b.isNPC) || a.name.localeCompare(b.name));
 
@@ -156,11 +158,21 @@ function renderCharacters() {
         </select></div>
       <div class="field"><label>Status</label>
         <select onchange="charStatusFilter=this.value;renderCharacters()"><option value="">Any</option>${CHAR_STATUSES.map(s => `<option ${charStatusFilter === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Faction</label>
+        <select onchange="charFactionFilter=this.value;renderCharacters()"><option value="">Any</option>${allFactions().map(f => `<option ${charFactionFilter === f ? 'selected' : ''}>${escapeHtml(f)}</option>`).join('')}</select></div>
       <div class="btn-row"><button class="btn primary" onclick="newCharacter(false)">+ New PC</button><button class="btn" onclick="newCharacter(true)">+ New NPC</button></div>
     </div>
     ${list.length ? list.map(rosterItemHtml).join('') : '<div class="empty-state">No characters yet — create one to get started.</div>'}
   </div>`;
 }
+
+// Every faction in use, plus the suggestions, for the filter and the sheet's autocomplete
+function allFactions() {
+  return [...new Set(Object.values(state.characters).map(c => c.faction).filter(Boolean).concat(FACTION_SUGGESTIONS))].sort((a, b) => a.localeCompare(b));
+}
+
+// Faction tag (e.g. Midnight Archive)
+function factionTagHtml(c) { return c.faction ? `<span class="tag faction" title="Faction">⚑ ${escapeHtml(c.faction)}</span>` : ''; }
 
 // Active status effects (Prone, Poisoned…) as small tags next to a name
 function effectTagsHtml(c) { return (c.conditions || []).map(e => `<span class="tag effect">${escapeHtml(e)}</span>`).join(''); }
@@ -173,10 +185,11 @@ function rosterItemHtml(c) {
   return `
   <div class="roster-item" onclick="openChar('${c.id}')">
     <div>
-      <div class="name">${escapeHtml(c.name || '(unnamed)')} ${c.isNPC ? '<span class="tag">NPC</span>' : '<span class="tag">PC</span>'}${statusTagHtml(c, true)}${st !== 'ok' ? `<span class="tag danger">${st === 'dead' ? 'LIFE: dead' : 'Down'}</span>` : ''}${effectTagsHtml(c)}</div>
+      <div class="name">${escapeHtml(c.name || '(unnamed)')} ${c.isNPC ? '<span class="tag">NPC</span>' : '<span class="tag">PC</span>'}${statusTagHtml(c, true)}${factionTagHtml(c)}${st !== 'ok' ? `<span class="tag danger">${st === 'dead' ? 'LIFE: dead' : 'Down'}</span>` : ''}${effectTagsHtml(c)}</div>
       <div class="meta">${c.player ? 'Player: ' + escapeHtml(c.player) + ' · ' : ''}${c.year ? 'Year ' + c.year + ' · ' : ''}Lvl ${c.level} · Life ${c.life}/${lifeMax(c)} · Focus ${c.focus} · Stress ${c.stress}${arch ? ' · ' + escapeHtml(arch.name) : ''}</div>
       ${c.gmNotes ? `<div class="meta note-preview"><strong>GM:</strong> ${escapeHtml(notePreview(c.gmNotes))}</div>` : (c.notes ? `<div class="meta note-preview">${escapeHtml(notePreview(c.notes))}</div>` : '')}
     </div>
+    <button class="icon-btn edit" onclick="event.stopPropagation();openQuickEdit('${c.id}')" title="Quick edit (max LIFE, stats)" aria-label="Quick edit ${escapeAttr(c.name)}">✎</button>
     <button class="icon-btn" onclick="event.stopPropagation();deleteCharacter('${c.id}')" title="Delete" aria-label="Delete ${escapeAttr(c.name)}">✕</button>
   </div>`;
 }
@@ -466,10 +479,10 @@ function sheetHtml(c) {
 
   return `
   <div class="sheet">
-    ${gm ? `<div class="btn-row" style="margin-bottom:10px"><button class="btn small" onclick="closeChar()">← All characters</button><button class="btn small danger" onclick="deleteCharacter('${c.id}')">Delete</button></div>` : ''}
+    ${gm ? `<div class="btn-row" style="margin-bottom:10px"><button class="btn small" onclick="closeChar()">← All characters</button><button class="btn small" onclick="openQuickEdit('${c.id}')">✎ Quick edit</button><button class="btn small danger" onclick="deleteCharacter('${c.id}')">Delete</button></div>` : ''}
 
     <div class="panel">
-      <div class="panel-title"><span>${escapeHtml(c.name || '(unnamed)')}${c.isNPC ? '<span class="tag">NPC</span>' : '<span class="tag">PC</span>'}${statusTagHtml(c, true)}${effectTagsHtml(c)}</span></div>
+      <div class="panel-title"><span>${escapeHtml(c.name || '(unnamed)')}${c.isNPC ? '<span class="tag">NPC</span>' : '<span class="tag">PC</span>'}${statusTagHtml(c, true)}${factionTagHtml(c)}${effectTagsHtml(c)}</span></div>
       <div class="grid cols-4">
         ${f('Name', inpText('name'))}
         ${f(c.isNPC ? 'Role' : 'Player', inpText('player', c.isNPC ? '' : 'Real name'))}
@@ -478,6 +491,7 @@ function sheetHtml(c) {
       </div>
       <div class="grid cols-3">
         ${f('Status', statusFieldHtml(c))}
+        ${f('Faction', gm ? `<input type="text" list="faction-list" value="${escapeAttr(c.faction)}" placeholder="e.g. Midnight Archive" onchange="setField('${c.id}','faction',this.value.trim())"><datalist id="faction-list">${allFactions().map(x => `<option value="${escapeAttr(x)}">`).join('')}</datalist>` : `<div>${c.faction ? escapeHtml(c.faction) : '—'}</div>`)}
         ${f('Archetype', gm ? `<select onchange="setField('${c.id}','archetypeId',this.value)"><option value="">— none —</option>${archList.map(a => `<option value="${a.id}" ${a.id === c.archetypeId ? 'selected' : ''}>${escapeHtml(a.name)}</option>`).join('')}</select>` : `<div>${arch ? escapeHtml(arch.name) : '—'}</div>`)}
         ${gm && !c.isNPC ? f('Player PIN (login)', `<input type="text" maxlength="8" value="${escapeAttr(c.pin)}" onchange="setField('${c.id}','pin',this.value)">`) : ''}
       </div>

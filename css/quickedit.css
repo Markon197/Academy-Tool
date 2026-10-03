@@ -1,0 +1,40 @@
+/* ── quick edit (GM) ── */
+#quick-edit { position: fixed; inset: 0; z-index: 95; }
+.qe-card { width: min(620px, 96vw); overflow-x: hidden; box-sizing: border-box; }
+.qe-life { background: var(--bg2); border: 1px solid var(--border-gold); border-radius: 14px; padding: 12px; }
+.qe-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+.qe-big { flex: 1 1 280px; min-width: 0; }
+.qe-big > span, .qe-f > span { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text2); margin-bottom: 4px; }
+.qe-step { display: flex; gap: 6px; align-items: center; }
+.qe-step input { width: 96px; min-width: 0; height: 54px; font-size: 26px; text-align: center; font-family: var(--font-display); }
+.qe-step .gs-btn { min-height: 54px; min-width: 52px; font-size: 18px; padding: 0 4px; }
+.qe-f { display: block; flex: 0 0 auto; }
+.qe-f input { width: 100%; min-width: 70px; }
+.qe-life .qe-f { width: 120px; }
+.qe-life .qe-f input { height: 54px; font-size: 22px; text-align: center; }
+.qe-formula { font-size: 12px; color: var(--text2); margin-top: 6px; }
+.qe-formula strong { color: var(--gold-bright); }
+.qe-sec { font-family: var(--font-display); letter-spacing: .1em; font-size: 12px; color: var(--text2); text-transform: uppercase; margin-top: 4px; }
+.qe-pillars { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.qe-pillar { border: 1px solid var(--border); border-top: 4px solid var(--border-gold); border-radius: 12px; padding: 8px; background: var(--surface2); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.qe-pillar.pillar-body { border-top-color: var(--red-bright); }
+.qe-pillar.pillar-mind { border-top-color: var(--blue-bright); }
+.qe-pillar.pillar-soul { border-top-color: var(--purple-bright); }
+.qe-ph { font-family: var(--font-display); letter-spacing: .1em; color: var(--gold-bright); font-size: 13px; }
+.qe-pillar .qe-f { min-width: 0; }
+.qe-pillar .qe-f input { padding: 6px 8px; font-size: 15px; text-align: center; min-width: 0; }
+.qe-pillar .qe-pin { font-size: 20px; font-family: var(--font-display); }
+.qe-counters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.icon-btn.edit { font-size: 18px; color: var(--gold-bright); }
+
+@media (max-width: 520px) {
+  .qe-counters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .qe-pillars { gap: 4px; }
+  .qe-pillar { padding: 6px; }
+  .qe-pillar .qe-f > span { font-size: 9px; letter-spacing: 0; }
+  .qe-step { gap: 4px; }
+  .qe-step input { width: 64px; font-size: 22px; }
+  .qe-step .gs-btn { min-width: 42px; font-size: 16px; }
+  .qe-life { padding: 10px; }
+  .qe-life .qe-f { width: 100%; }
+}

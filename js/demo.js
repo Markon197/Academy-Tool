@@ -124,7 +124,7 @@ function seedDemoState() {
     gmNotes: 'Real sheet (Packson Character Sheet.docx).',
   }));
   const varn = withLife(mk({
-    name: 'Archivist Varn', isNPC: true, year: 0, level: 10, player: '',
+    name: 'Archivist Varn', isNPC: true, year: 0, level: 10, player: '', faction: 'Midnight Archive',
     pillars: { body: 9, mind: 8, soul: 10 },
     skills: { force: 8, endurance: 7, reflex: 6, study: 9, logic: 8, craft: 7, will: 10, presence: 9, empathy: 6 },
     techniques: techs(
@@ -171,7 +171,12 @@ function seedDemoState() {
     gmNotes: 'Stats are PLACEHOLDERS - the doc gives none. Techniques are from Gladius Solo.docx.',
   }));
 
-  const characters = Object.fromEntries([lucien, drusilla, fad, dalton, packson, varn, aethyrix, gladius].map(c => [c.id, c]));
+  // Varn's people at the Midnight Archive. Details beyond the name are not written down yet.
+  const november = withLife(mk({ name: 'Princess November', isNPC: true, year: 0, level: 1, player: '', faction: 'Midnight Archive',
+    notes: 'Archivist Varn’s assistant. Killed Ser Caldus on Varn’s order (The Teacher Beyond the Wall).', gmNotes: 'Stats are PLACEHOLDERS - the docs give none. Doc spelling: "Princerss November Forna".' }));
+  const march = withLife(mk({ name: 'Matriarch March', isNPC: true, year: 0, level: 1, player: '', faction: 'Midnight Archive',
+    notes: '', gmNotes: 'No details written down yet. Stats are PLACEHOLDERS.' }));
+  const characters = Object.fromEntries([lucien, drusilla, fad, dalton, packson, varn, aethyrix, gladius, november, march].map(c => [c.id, c]));
 
   // Mission 1 seals (Back to School 2.docx). Marks are n/5.
   const byChar = Object.fromEntries(Object.values(characters).map(c => [c.name, c.id]));

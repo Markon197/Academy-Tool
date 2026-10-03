@@ -143,7 +143,7 @@ body.status-fit { overflow: hidden; }
 .gs-effects .cond-in { background: var(--bg2) !important; color: var(--text) !important; }
 
 .gs-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-@media (max-width: 800px) { .gs-sides { grid-template-columns: 1fr; } .gs-btns { grid-template-columns: repeat(4, 1fr); } .gs-minis { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 800px) { .gs-sides { grid-template-columns: 1fr; } .gs-btns { grid-template-columns: repeat(4, 1fr); } }
 .gs-side h4 { margin-bottom: 8px; letter-spacing: .08em; }
 .gs-side.ally h4 { color: var(--green-bright); } .gs-side.enemy h4 { color: var(--red-bright); }
 .gs-npc { border-radius: var(--radius-lg); padding: 10px 12px; margin-bottom: 10px; background: var(--surface2); border: 1px solid var(--border); border-left-width: 5px; }
@@ -199,3 +199,67 @@ body.status-fit { overflow: hidden; }
   .ps-skill b { font-size: clamp(18px, 6dvh, 28px); }
   .ps-pick { padding: 4px 10px; font-size: 12px; }
 }
+
+/* title block (name + scene) and the always-visible Exit button */
+.ps-title { flex: 1; min-width: 0; }
+.ps-title .ps-name { flex: none; }
+.ps-title .ps-scene { text-align: left; max-width: 100%; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-exit { flex: 0 0 auto; height: 46px; padding: 0 16px; border-radius: 12px; border: 2px solid var(--gold-bright); background: linear-gradient(180deg, var(--surface3), var(--bg2)); color: var(--gold-bright); font-family: var(--font-display); font-size: 16px; cursor: pointer; touch-action: manipulation; }
+.ps-exit.ghost { border-color: var(--border-gold); color: var(--text2); font-size: 14px; }
+.ps-exit:active { transform: scale(.95); }
+@media (orientation: landscape) and (max-height: 560px) { .ps-exit { height: 36px; padding: 0 12px; font-size: 14px; } }
+
+/* ── GM overview layout fixes ──
+   4 players: 1 column on phones, a tidy 2x2 on laptops, 4 across only on very wide screens.
+   Everything inside a card must wrap rather than spill out. */
+.gs-grid { grid-template-columns: 1fr; align-items: stretch; }
+@media (min-width: 900px) { .gs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 2000px) { .gs-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.gs-card { min-width: 0; display: flex; flex-direction: column; }
+.gs-card .combat-gmnote { margin-top: auto; }
+.gs-minis { grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); }
+.gs-mini { min-width: 0; }
+.gs-mini .icon-btn { padding: 4px 8px; }
+.gs-effects .cond-in { flex: 1 1 120px; min-width: 100px; width: auto !important; }
+.gs-sides > * { min-width: 0; }
+
+/* ── effects: one slim row (active ones + "＋ Effect"), picker in an overlay ── */
+.ps-fx, .gs-fx { display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.ps-fx::-webkit-scrollbar, .gs-fx::-webkit-scrollbar { display: none; }
+.ps-fx { flex: 0 0 auto; min-height: 30px; }
+.gs-fx { margin-top: 10px; flex-wrap: wrap; overflow: visible; }
+.ps-fx .eff, .gs-fx .eff { flex: 0 0 auto; padding: 4px 12px; font-size: 12px; white-space: nowrap; }
+.eff.add { background: transparent; border-style: dashed; color: var(--text3); }
+.eff.add:hover { color: var(--gold-bright); border-color: var(--gold-bright); }
+#effect-picker { position: fixed; inset: 0; z-index: 90; }
+.ep-title { font-family: var(--font-display); color: var(--gold-bright); font-size: 17px; text-align: center; }
+.ep-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.ep-grid .eff { min-height: 46px; font-size: 15px; }
+
+/* ── friends & foes on the player screen: bigger, colour-coded, health band only ── */
+.ps-scene2 { flex: 0 0 auto; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; max-height: 26dvh; overflow-y: auto; scrollbar-width: none; }
+.ps-scene2::-webkit-scrollbar { display: none; }
+.ps-grp { display: flex; flex-direction: column; gap: 5px; min-width: 0; border-radius: 14px; padding: 6px 8px 8px; border: 2px solid; background: var(--surface2); }
+.ps-grp h5 { font-family: var(--font-display); letter-spacing: .14em; font-size: 11px; margin: 0; text-transform: uppercase; }
+.ps-grp.ally { border-color: #2f6a3d; } .ps-grp.ally h5 { color: var(--green-bright); }
+.ps-grp.enemy { border-color: #7a2a38; background: linear-gradient(180deg, #2a1218, var(--surface2)); } .ps-grp.enemy h5 { color: var(--red-bright); }
+.ps-foe { min-width: 0; }
+.ps-foe .fn { font-family: var(--font-display); font-size: clamp(14px, 2.4dvh, 19px); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-foe .fb { font-size: clamp(11px, 1.8dvh, 14px); color: var(--text2); }
+.ps-foe .fbar { height: 7px; border-radius: 4px; background: rgba(0,0,0,.45); overflow: hidden; margin-top: 2px; }
+.ps-foe .fbar i { display: block; height: 100%; }
+.ps-grp.ally .fbar i { background: linear-gradient(90deg, #1f5a2c, var(--green-bright)); }
+.ps-grp.enemy .fbar i { background: linear-gradient(90deg, var(--red-dim), var(--red-bright)); }
+.ps-foe.down { opacity: .45; } .ps-foe.down .fn { text-decoration: line-through; }
+@media (orientation: landscape) and (max-height: 560px) { .ps-scene2 { max-height: 30dvh; } .ps-foe .fn { font-size: 13px; } }
+
+/* GM scene panel gets more presence */
+.gs-scene { border-color: var(--border-gold); }
+.gs-scene .panel-title { font-size: 18px; }
+.gs-side h4 { font-size: 16px; }
+.gs-npc .gs-name { font-size: 20px; }
+.gs-npc { padding: 12px 14px; }
+
+/* faction tag */
+.tag.faction { color: #c9b6ff; border-color: #6a4aa0; background: rgba(106,74,160,.18); }
+.tag.on-card.faction { color: #4a2f80; border-color: #4a2f80; background: rgba(74,47,128,.1); }

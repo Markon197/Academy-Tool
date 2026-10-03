@@ -13,7 +13,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 const EFFECT_PRESETS = ['Prone', 'Held', 'Stunned', 'Poisoned', 'Bleeding', 'Scared', 'Blinded', 'Slowed', 'Burning', 'Cursed'];
-const SKILL_SHORT = { endurance: 'Endur.', presence: 'Pres.', empathy: 'Empath.' };   // so labels never get cut off on narrow phones
+const SKILL_SHORT = { endurance: 'Endur.', presence: 'Pres.', empathy: 'Emp.' };   // so labels never get cut off on narrow phones
 const SKILL_PILLAR = Object.fromEntries(PILLARS.flatMap(p => SKILLS_BY_PILLAR[p].map(s => [s, p])));
 
 let psSkill = null;            // skill the player just tapped: { charId, stat, pillar, tn }
@@ -34,13 +34,25 @@ function setFocusMode(on) {
   try { localStorage.setItem('academy_focus', on ? '1' : '0'); } catch (e) {}
   closeStatusMenu(); applyChrome(); renderStatus();
 }
+// One tap out of the live screen: bring the header and tabs back and open the character sheet
+// (the Status tab stays first in the tab bar to get back).
+function exitStatus() {
+  try { localStorage.setItem('academy_focus', '0'); } catch (e) {}
+  switchView('view-characters');
+  applyChrome();
+}
+
 function applyChrome() {
   const onStatus = currentView() === 'view-status';
   document.body.classList.toggle('on-status', onStatus);
   document.body.classList.toggle('focus-mode', onStatus && focusMode());
   document.body.classList.toggle('status-fit', onStatus && session.role === 'player');
+  // the Exit/Focus button depends on the mode, so redraw when the mode or tab changes
+  const key = onStatus + '|' + focusMode();
+  if (key !== lastChrome) { lastChrome = key; renderStatus(); }
   fitStatus();
 }
+let lastChrome = null;
 // The player screen must fit the visible window exactly (phones have moving toolbars).
 function fitStatus() {
   const ps = document.querySelector('#status-root .ps');
@@ -118,11 +130,47 @@ function pickSkill(id, stat) {
 }
 function clearSkill() { psSkill = null; clearTimeout(psSkillTimer); renderStatus(); }
 
-function effectChips(c, canEdit_) {
+// Status effects are rare, so they get one slim row: only the ACTIVE ones, plus a "＋ Effect" button
+// that opens a picker. That frees the screen for what matters most: life, skills, friends and foes.
+const effArg = name => escapeAttr(name).replace(/'/g, '&#39;');
+function fxRow(c, cls) {
   const active = c.conditions || [];
-  const custom = active.filter(e => !EFFECT_PRESETS.includes(e));
-  const chip = name => `<button class="eff ${active.includes(name) ? 'on' : ''}" ${canEdit_ ? '' : 'disabled'} onclick="toggleEffect('${c.id}','${escapeAttr(name).replace(/'/g, '&#39;')}')">${escapeHtml(name)}</button>`;
-  return EFFECT_PRESETS.map(chip).join('') + custom.map(chip).join('');
+  return `<div class="${cls}-fx">${active.map(e => `<button class="eff on" onclick="toggleEffect('${c.id}','${effArg(e)}')" title="Tap to remove">${escapeHtml(e)} ✕</button>`).join('')}<button class="eff add" onclick="openEffectPicker('${c.id}')">＋ Effect</button></div>`;
+}
+
+let effPickId = null;
+function openEffectPicker(id) { effPickId = id; renderEffectPicker(); }
+function closeEffectPicker() { effPickId = null; document.getElementById('effect-picker')?.remove(); }
+function renderEffectPicker() {
+  const c = state.characters[effPickId];
+  if (!c) { closeEffectPicker(); return; }
+  let el = document.getElementById('effect-picker');
+  if (!el) { el = document.createElement('div'); el.id = 'effect-picker'; document.body.appendChild(el); }
+  const active = c.conditions || [];
+  const names = EFFECT_PRESETS.concat(active.filter(e => !EFFECT_PRESETS.includes(e)));
+  el.innerHTML = `
+    <div class="sm-backdrop" onclick="closeEffectPicker()"></div>
+    <div class="sm-card" role="dialog" aria-label="Status effects">
+      <div class="ep-title">Status effects — ${escapeHtml(c.name)}</div>
+      <div class="ep-grid">${names.map(n => `<button class="eff ${active.includes(n) ? 'on' : ''}" onclick="toggleEffect('${c.id}','${effArg(n)}')">${escapeHtml(n)}</button>`).join('')}</div>
+      ${session.role === 'gm' ? `<div class="inline"><input type="text" id="ep-custom" placeholder="Custom effect…" onkeydown="if(event.key==='Enter')addCustomEffect('${c.id}','ep-custom')"><button class="btn small" onclick="addCustomEffect('${c.id}','ep-custom')">Add</button></div>` : ''}
+      <button class="sm-btn ghost" onclick="closeEffectPicker()">Done</button>
+    </div>`;
+}
+
+// Friends and foes the GM has revealed: names + a coarse health band only (never numbers).
+const bandPct = o => ({ Unhurt: 100, Hurt: 66, Bloodied: 38, Critical: 14 }[healthBand(o)] || 0);
+function sceneSectionHtml() {
+  const entries = sceneEntries().filter(e => e.visible);
+  if (!entries.length) return '';
+  const card = e => {
+    const o = state.characters[e.charId];
+    const dead = lifeStatus(o) === 'dead' || o.status === 'Dead';
+    const label = dead ? 'Defeated' : (o.status && o.status !== 'Alive' ? o.status : healthBand(o));
+    return `<div class="ps-foe ${e.side} ${dead ? 'down' : ''}"><div class="fn">${escapeHtml(o.name)}</div><div class="fb">${escapeHtml(label)}</div><div class="fbar"><i style="width:${dead ? 0 : bandPct(o)}%"></i></div></div>`;
+  };
+  const group = (side, title) => { const l = entries.filter(e => e.side === side); return l.length ? `<div class="ps-grp ${side}"><h5>${title}</h5>${l.map(card).join('')}</div>` : ''; };
+  return `<div class="ps-scene2">${group('ally', 'Friends')}${group('enemy', 'Foes')}</div>`;
 }
 
 // ═══════════════════ RENDER ═══════════════════
@@ -134,6 +182,7 @@ function renderStatus() {
     root.innerHTML = c ? playerStatusHtml(c) : '<div class="empty-state">No character found.</div>';
   } else root.innerHTML = gmStatusHtml();
   fitStatus();
+  if (effPickId) renderEffectPicker();   // keep an open effect picker current
 }
 
 // ── Player ──
@@ -153,8 +202,13 @@ function playerStatusHtml(c) {
   <div class="ps">
     <div class="ps-top">
       <button class="ps-menu" onclick="openStatusMenu()" aria-label="Menu">☰</button>
-      <div class="ps-name">${escapeHtml(c.name)} ${statusTagHtml(c, false)}</div>
-      <div class="ps-scene">${sceneName ? escapeHtml(sceneName) : 'Lvl ' + c.level}</div>
+      <div class="ps-title">
+        <div class="ps-name">${escapeHtml(c.name)} ${statusTagHtml(c, false)}</div>
+        <div class="ps-scene">${sceneName ? escapeHtml(sceneName) : 'Lvl ' + c.level}</div>
+      </div>
+      ${focusMode()
+        ? `<button class="ps-exit" onclick="exitStatus()" aria-label="Exit the status screen">Exit ✕</button>`
+        : `<button class="ps-exit ghost" onclick="setFocusMode(true)" aria-label="Focus mode">Focus ⛶</button>`}
     </div>
     <div class="ps-main">
       <div class="ps-left">
@@ -169,9 +223,10 @@ function playerStatusHtml(c) {
         </div>
         <div class="ps-counters">${counter('focus', 'Focus', 'c-focus')}${counter('energy', 'Energy', 'c-energy')}${counter('stress', 'Stress', 'c-stress')}</div>
         ${c.stress >= 6 ? '<div class="ps-alert">6 Stress — gain a Ruin point</div>' : ''}
-        <div class="ps-effects">${effectChips(c, true)}</div>
+        ${fxRow(c, 'ps')}
       </div>
       <div class="ps-right">
+        ${sceneSectionHtml()}
         ${picked ? `<div class="ps-pick" onclick="clearSkill()"><span>${STAT_LABEL(psSkill.pillar)} + ${STAT_LABEL(psSkill.stat)} → roll a d20, <strong>${psSkill.tn >= 20 ? 'only a 20 fails' : psSkill.tn + ' or lower'}</strong></span><i>✕</i></div>` : ''}
         <div class="ps-attrs">
           ${PILLARS.map(p => `
@@ -180,7 +235,6 @@ function playerStatusHtml(c) {
               ${SKILLS_BY_PILLAR[p].map(s => `<button class="ps-skill ${isSel(s) ? 'sel' : ''}" onclick="pickSkill('${c.id}','${s}')"><span>${SKILL_SHORT[s] || STAT_LABEL(s)}</span><b>${isSel(s) ? psSkill.tn : c.skills[s]}</b>${isSel(s) ? '<small>roll ≤ TN</small>' : ''}</button>`).join('')}
             </div>`).join('')}
         </div>
-        ${scene.length ? `<div class="ps-scene-strip">${scene.map(e => { const o = state.characters[e.charId]; return `<span class="ps-chip ${e.side} ${lifeStatus(o) === 'dead' || o.status === 'Dead' ? 'down' : ''}"><i>${e.side === 'ally' ? 'ALLY' : 'FOE'}</i> ${escapeHtml(o.name)} <em>${o.status && o.status !== 'Alive' ? escapeHtml(o.status) : healthBand(o)}</em></span>`; }).join('')}</div>` : ''}
       </div>
     </div>
   </div>`;
@@ -212,8 +266,6 @@ function gmStatusHtml() {
     ${feed.length ? `<div class="gs-feed"><span class="sub">Just now:</span> ${feed.map(a => `<span class="gs-feed-item">${escapeHtml(a.text)} <em>${timeAgo(a.ts)}</em></span>`).join('')}</div>` : ''}
   </div>
 
-  <div class="gs-grid">${pcs.length ? pcs.map(gmPlayerCard).join('') : '<div class="panel"><div class="empty-state">No player characters yet.</div></div>'}</div>
-
   <div class="panel gs-scene">
     <div class="panel-title"><span>Scene <span class="sub">allies &amp; enemies — players only ever see a name and health band</span></span>
       ${entries.length ? '<button class="btn small" onclick="clearScene()">Clear scene</button>' : ''}</div>
@@ -237,7 +289,9 @@ function gmStatusHtml() {
       <div class="gs-side ally"><h4>Allies</h4>${allyList.length ? allyList.map(sceneCardHtml).join('') : '<div class="empty-state" style="padding:14px">No allies in the scene.</div>'}</div>
       <div class="gs-side enemy"><h4>Enemies</h4>${foeList.length ? foeList.map(sceneCardHtml).join('') : '<div class="empty-state" style="padding:14px">No enemies in the scene.</div>'}</div>
     </div>
-  </div>`;
+  </div>
+
+  <div class="gs-grid">${pcs.length ? pcs.map(gmPlayerCard).join('') : '<div class="panel"><div class="empty-state">No player characters yet.</div></div>'}</div>`;
 }
 
 function gmPlayerCard(c) {
@@ -247,7 +301,8 @@ function gmPlayerCard(c) {
   <div class="gs-card ${st}">
     <div class="gs-head">
       <div><a href="#" class="gs-name" onclick="event.preventDefault();switchView('view-characters');openChar('${c.id}')">${escapeHtml(c.name)}</a> <span class="sub">${escapeHtml(c.player || '')}</span></div>
-      <select class="gs-status ${statusClass(c.status)}" onchange="setField('${c.id}','status',this.value)" aria-label="Status">${CHAR_STATUSES.map(s => `<option ${c.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
+      <div class="inline"><button class="icon-btn edit" onclick="openQuickEdit('${c.id}')" title="Quick edit (max LIFE, stats)" aria-label="Quick edit ${escapeAttr(c.name)}">✎</button>
+      <select class="gs-status ${statusClass(c.status)}" onchange="setField('${c.id}','status',this.value)" aria-label="Status">${CHAR_STATUSES.map(s => `<option ${c.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
     </div>
     <div class="gs-life"><span class="n">${c.life}</span><span class="m">/ ${max}</span>
       ${st === 'downed' ? `<span class="gs-flag">DOWNED · buffer ${Math.max(0, -c.life)}/${deathBuffer(c)}</span>` : st === 'dead' ? '<span class="gs-flag">LIFE: DEAD</span>' : ''}</div>
@@ -258,8 +313,7 @@ function gmPlayerCard(c) {
     </div>
     <div class="gs-minis">${mini('focus', 'Focus')}${mini('energy', 'Energy')}${mini('stress', 'Stress')}${mini('ascension', 'Ascension')}${mini('ruin', 'Ruin')}</div>
     ${c.stress >= 6 ? '<div class="alert danger" style="margin:6px 0">6 Stress — Ruin point due</div>' : ''}
-    <div class="gs-effects">${effectChips(c, true)}
-      <input type="text" class="cond-in" id="eff-${c.id}" placeholder="+ effect ↵" onkeydown="if(event.key==='Enter')addCustomEffect('${c.id}','eff-${c.id}')"></div>
+    ${fxRow(c, 'gs')}
     ${c.gmNotes ? `<div class="combat-gmnote"><strong>GM:</strong> ${escapeHtml(notePreview(c.gmNotes, 160))}</div>` : ''}
   </div>`;
 }
@@ -272,15 +326,16 @@ function sceneCardHtml(e) {
   <div class="gs-npc ${e.side} ${dead ? 'dead' : ''} ${e.visible ? '' : 'hidden-from-players'}">
     <div class="gs-npc-head">
       <div><a href="#" class="gs-name" onclick="event.preventDefault();switchView('view-characters');openChar('${c.id}')">${escapeHtml(c.name)}</a>
-        <span class="tag">${healthBand(c)}</span>${statusTagHtml(c, false)}${e.visible ? '' : '<span class="tag danger">hidden from players</span>'}</div>
+        <span class="tag">${healthBand(c)}</span>${statusTagHtml(c, false)}${factionTagHtml(c)}${e.visible ? '' : '<span class="tag danger">hidden from players</span>'}</div>
       <div class="inline">
+        <button class="icon-btn edit" onclick="openQuickEdit('${c.id}')" title="Quick edit (max LIFE, stats)" aria-label="Quick edit ${escapeAttr(c.name)}">✎</button>
         <button class="icon-btn" onclick="toggleSceneVisible('${e.id}')" title="${e.visible ? 'Hide from players' : 'Reveal to players'}" aria-label="${e.visible ? 'Hide from players' : 'Reveal to players'}">${e.visible ? '👁' : '🚫'}</button>
         <button class="icon-btn" onclick="removeFromScene('${e.id}')" aria-label="Remove from scene">✕</button></div>
     </div>
     <div class="gs-npc-life"><b>${c.life}</b> / ${max}<div class="ps-bar thin"><div style="width:${pct(c.life, max)}%"></div></div></div>
     <div class="gs-btns small">${[-5, -1, 1, 5].map(d => `<button class="gs-btn ${d < 0 ? 'neg' : 'pos'}" onclick="statusLife('${c.id}',${d})">${d > 0 ? '+' : '−'}${Math.abs(d)}</button>`).join('')}
       <button class="gs-btn full" onclick="setField('${c.id}','status','Dead')">☠ Defeated</button></div>
-    <div class="gs-effects">${effectChips(c, true)}</div>
+    ${fxRow(c, 'gs')}
   </div>`;
 }
 
