@@ -34,6 +34,7 @@ function renderAll() {
   renderItems();
   if (rollerOpen) renderRoller();
   applyRoleGating();
+  checkActivity();
   // in-app dice are optional (real dice by default)
   document.getElementById('roll-btn')?.classList.toggle('hidden', !digitalRolls());
   const dt = document.getElementById('dice-toggle');

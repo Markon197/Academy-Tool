@@ -80,6 +80,7 @@
       <div class="campaign-name" id="header-campaign-name">Campaign</div>
     </div>
     <div class="session-info">
+      <button class="btn small" id="notice-btn" data-gm-only onclick="toggleNotices()" aria-controls="notices" title="Changes your players made">🔔 <span id="notice-count">0</span></button>
       <label class="chk dice-toggle" data-gm-only title="Off: players don't see the Combat tab."><input type="checkbox" id="combat-toggle" onchange="setPlayerCombat(this.checked)"> Combat for players</label>
       <label class="chk dice-toggle" data-gm-only title="Off: the table rolls real dice and the sheet shows target numbers. On: players can roll in the app."><input type="checkbox" id="dice-toggle" onchange="setDigitalRolls(this.checked)"> Digital dice</label>
       <button class="btn small hidden" id="roll-btn" onclick="toggleRoller()" aria-controls="roller">🎲 Roll &amp; log</button>
@@ -110,6 +111,10 @@
     <div class="roller-head"><span>🎲 Roll &amp; table log</span><button class="icon-btn" onclick="toggleRoller()" aria-label="Close">✕</button></div>
     <div id="roller-body"></div>
   </aside>
+  <aside id="notices" aria-label="Notice board">
+    <div class="roller-head"><span>🔔 Notice board</span><button class="icon-btn" onclick="toggleNotices()" aria-label="Close">✕</button></div>
+    <div id="notices-body"></div>
+  </aside>
   <div id="roll-result" class="roll-result" role="status" aria-live="polite"></div>
 </div>
 
@@ -126,6 +131,7 @@
 <script src="js/demo.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/roller.js"></script>
+<script src="js/activity.js"></script>
 <script src="js/characters.js"></script>
 <script src="js/combat.js"></script>
 <script src="js/curriculum.js"></script>

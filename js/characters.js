@@ -94,18 +94,22 @@ async function setField(id, field, value, numeric) {
 async function bump(id, field, delta, min, max) {
   const c = state.characters[id];
   if (!c || !canEdit(c, field)) return;
-  let v = (Number(c[field]) || 0) + delta;
+  const before = Number(c[field]) || 0;
+  let v = before + delta;
   if (min !== undefined) v = Math.max(min, v);
   if (max !== undefined) v = Math.min(max, v);
   await dbWrite('characters/' + id + '/' + field, v);
+  notifyChange(c, field, before, v);   // tells the GM when a player does this
 }
 
 // LIFE can drop below 0 (down to the death buffer); healing is capped at max.
 async function applyLife(id, delta) {
   const c = state.characters[id];
   if (!c || !delta || !canEdit(c, 'life')) return;
-  const next = Math.max(-999, Math.min(lifeMax(c), (Number(c.life) || 0) + delta));
+  const before = Number(c.life) || 0;
+  const next = Math.max(-999, Math.min(lifeMax(c), before + delta));
   await dbWrite('characters/' + id + '/life', next);
+  notifyChange(c, 'life', before, next);
   const after = { ...c, life: next };
   if (lifeStatus(c) !== lifeStatus(after)) {
     const st = lifeStatus(after);
@@ -339,6 +343,7 @@ async function useTechnique(charId, key) {
   else if (cd.rounds) updates[`characters/${charId}/cooldowns/${key}`] = cd.rounds;
   else if (cd.perRest) updates[`characters/${charId}/cooldowns/${key}`] = 'rest';
   if (Object.keys(updates).length) await dbUpdate(updates);
+  notifyEvent(c, `used ${t.name}`);
   const r = parseRoll(t.roll);
   if (r && digitalRolls()) { await performRoll(charId, r.a, r.b, Number(t.bonus) || 0, t.name); return; }
   // Real dice: just remind the table what to roll.
@@ -346,10 +351,16 @@ async function useTechnique(charId, key) {
   showToast(r ? `${c.name} uses ${t.name} — roll d20 at or under ${tn} (${STAT_LABEL(r.a)} + ${STAT_LABEL(r.b)}).` : `${c.name} uses ${t.name}.`);
   if (digitalRolls()) await logNote(c, `uses ${t.name}`);
 }
-async function resetCooldown(charId, key) { await dbWrite(`characters/${charId}/cooldowns/${key}`, null); }
+async function resetCooldown(charId, key) {
+  const c = state.characters[charId];
+  const t = c && charTechniques(c).find(x => x.key === key);
+  await dbWrite(`characters/${charId}/cooldowns/${key}`, null);
+  if (c && t) notifyEvent(c, `reset the cooldown on ${t.name}`);
+}
 async function restCharacter(charId) {
   const c = state.characters[charId];
   await dbWrite(`characters/${charId}/cooldowns`, null);
+  notifyEvent(c, 'rested — all techniques refreshed');
   showToast(`${c.name}: techniques refreshed.`);
 }
 
