@@ -473,11 +473,12 @@ function sheetHtml(c) {
         <div class="counters">
           ${counterHtml(c, 'focus', 'Focus', { hint: '1 Focus = 1 reroll; also powers abilities' })}
           ${counterHtml(c, 'energy', 'Energy', { hint: 'Fuels school actions' })}
-          ${counterHtml(c, 'stress', 'Stress', { hint: 'Pressure / trauma — causes roleplay penalties and debuffs' })}
+          ${counterHtml(c, 'stress', 'Stress', { hint: 'Pressure / trauma — causes roleplay penalties and debuffs. At 6 Stress you gain a Ruin point.' })}
           ${counterHtml(c, 'ascension', 'Ascension', { hint: 'Impressing the school / rising status' })}
           ${counterHtml(c, 'ruin', 'Ruin', { hint: 'Harming the school’s image or acting against its interests' })}
           ${counterHtml(c, 'detention', 'Detention hrs', { hint: 'Hours of detention still owed' })}
         </div>
+        ${c.stress >= 6 ? '<div class="alert danger">6 Stress reached — gain a Ruin point.</div>' : ''}
         <div class="derived">Initiative <strong>${initiativeScore(c)}</strong> (Body + Reflex) · Death buffer <strong>${deathBuffer(c)}</strong> (= Body)</div>
         ${gm ? `<label class="chk" style="margin-top:8px"><input type="checkbox" ${c.lifeOverride ? 'checked' : ''} onchange="setField('${c.id}','lifeOverride',this.checked);setField('${c.id}','maxLife',${lifeMax(c)},true)"> Override max LIFE manually</label>
           ${c.lifeOverride ? `<div class="field"><label>Max LIFE</label><input type="number" value="${c.maxLife}" onchange="setField('${c.id}','maxLife',this.value,true)"></div>` : ''}` : ''}
