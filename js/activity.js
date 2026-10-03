@@ -36,7 +36,9 @@ async function notifyChange(c, field, from, to) {
 // Something happened that isn't a number change ("used Cleaving Arc").
 async function notifyEvent(c, text) {
   if (session.role !== 'player') return;
-  await writeActivity({ charId: c.id, who: c.name, key: 'event', text: `${c.name} ${text}` });
+  const full = `${c.name} ${text}`;
+  if (activityList().some(a => a.key === 'event' && a.text === full && Date.now() - a.ts < 8000)) return;   // don't repeat identical taps
+  await writeActivity({ charId: c.id, who: c.name, key: 'event', text: full });
 }
 
 async function writeActivity(entry) {

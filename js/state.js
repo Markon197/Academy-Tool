@@ -12,7 +12,7 @@ let demoMode = false;
 
 // Every collection that is synced. Firebase drops empty objects/arrays, so
 // each one gets a default when it comes back missing.
-const COLLECTIONS = ['characters', 'professors', 'clubs', 'talents', 'skills', 'archetypes', 'items', 'missions', 'rolls', 'activity', 'world'];
+const COLLECTIONS = ['characters', 'professors', 'clubs', 'talents', 'skills', 'archetypes', 'items', 'missions', 'rolls', 'activity', 'world', 'scene'];
 
 function blankCombat() {
   return { active: false, round: 1, turn: 0, ambush: false, order: [], actions: {} };
@@ -21,7 +21,7 @@ function blankCombat() {
 let state = {
   campaignName: 'Campaign',
   gmPin: null,
-  settings: { highWindow: 3, digitalRolls: false, playerCombat: false },
+  settings: { highWindow: 3, digitalRolls: false, combatTab: false, sceneName: '' },
   characters: {},   // id -> character (PCs and NPCs)
   professors: {},   // id -> professor
   clubs: {},        // id -> club / extracurricular
@@ -33,6 +33,7 @@ let state = {
   rolls: {},        // id -> roll log entry (shared table log)
   activity: {},     // id -> change a player made (shown to the GM as notices)
   world: {},        // id -> places, factions, lore (GM only)
+  scene: {},        // id -> { charId, side: ally|enemy, visible } NPCs in the current scene
   combat: blankCombat(),
 };
 
@@ -61,7 +62,7 @@ function normaliseState(data) {
   const s = {
     campaignName: data.campaignName || 'Campaign',
     gmPin: data.gmPin || null,
-    settings: { highWindow: 3, digitalRolls: false, playerCombat: false, ...(data.settings || {}) },
+    settings: { highWindow: 3, digitalRolls: false, combatTab: false, sceneName: '', ...(data.settings || {}) },
   };
   COLLECTIONS.forEach(k => { s[k] = data[k] || {}; });
   const c = { ...blankCombat(), ...(data.combat || {}) };

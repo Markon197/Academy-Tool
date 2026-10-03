@@ -6,6 +6,7 @@
 <title>The Last Curriculum // Academy Tool</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/sheet.css">
+<link rel="stylesheet" href="css/status.css">
 </head>
 <body>
 
@@ -81,7 +82,7 @@
     </div>
     <div class="session-info">
       <button class="btn small" id="notice-btn" data-gm-only onclick="toggleNotices()" aria-controls="notices" title="Changes your players made">🔔 <span id="notice-count">0</span></button>
-      <label class="chk dice-toggle" data-gm-only title="Off: players don't see the Combat tab."><input type="checkbox" id="combat-toggle" onchange="setPlayerCombat(this.checked)"> Combat for players</label>
+      <label class="chk dice-toggle" data-gm-only title="The old Combat tab is hidden by default."><input type="checkbox" id="combat-toggle" onchange="setCombatTab(this.checked)"> Combat tab</label>
       <label class="chk dice-toggle" data-gm-only title="Off: the table rolls real dice and the sheet shows target numbers. On: players can roll in the app."><input type="checkbox" id="dice-toggle" onchange="setDigitalRolls(this.checked)"> Digital dice</label>
       <button class="btn small hidden" id="roll-btn" onclick="toggleRoller()" aria-controls="roller">🎲 Roll &amp; log</button>
       <span class="role-badge hidden" id="demo-badge" style="color:var(--red-bright);border-color:var(--red-bright)">DEMO</span>
@@ -92,6 +93,7 @@
   </header>
 
   <nav id="tabs" role="tablist">
+    <button data-view="view-status" id="tab-status" onclick="switchView('view-status')">Status</button>
     <button data-view="view-characters" id="tab-characters" onclick="switchView('view-characters')">Characters</button>
     <button data-view="view-combat" id="tab-combat" onclick="switchView('view-combat')">Combat</button>
     <button data-view="view-curriculum" onclick="switchView('view-curriculum')">Curriculum</button>
@@ -101,6 +103,7 @@
   </nav>
 
   <main>
+    <div id="view-status" class="view"><div id="status-root"></div></div>
     <div id="view-characters" class="view"><div id="characters-root"></div></div>
     <div id="view-combat" class="view"><div id="combat-root"></div></div>
     <div id="view-curriculum" class="view"><div id="curriculum-root"></div></div>
@@ -146,6 +149,7 @@
 <script src="js/roller.js"></script>
 <script src="js/activity.js"></script>
 <script src="js/characters.js"></script>
+<script src="js/status.js"></script>
 <script src="js/combat.js"></script>
 <script src="js/curriculum.js"></script>
 <script src="js/ledger.js"></script>

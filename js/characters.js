@@ -162,6 +162,9 @@ function renderCharacters() {
   </div>`;
 }
 
+// Active status effects (Prone, Poisoned…) as small tags next to a name
+function effectTagsHtml(c) { return (c.conditions || []).map(e => `<span class="tag effect">${escapeHtml(e)}</span>`).join(''); }
+
 function notePreview(s, n) { s = (s || '').replace(/\s+/g, ' ').trim(); n = n || 130; return s.length > n ? s.slice(0, n - 1) + '…' : s; }
 
 function rosterItemHtml(c) {
@@ -170,7 +173,7 @@ function rosterItemHtml(c) {
   return `
   <div class="roster-item" onclick="openChar('${c.id}')">
     <div>
-      <div class="name">${escapeHtml(c.name || '(unnamed)')} ${c.isNPC ? '<span class="tag">NPC</span>' : '<span class="tag">PC</span>'}${statusTagHtml(c, true)}${st !== 'ok' ? `<span class="tag danger">${st === 'dead' ? 'LIFE: dead' : 'Down'}</span>` : ''}</div>
+      <div class="name">${escapeHtml(c.name || '(unnamed)')} ${c.isNPC ? '<span class="tag">NPC</span>' : '<span class="tag">PC</span>'}${statusTagHtml(c, true)}${st !== 'ok' ? `<span class="tag danger">${st === 'dead' ? 'LIFE: dead' : 'Down'}</span>` : ''}${effectTagsHtml(c)}</div>
       <div class="meta">${c.player ? 'Player: ' + escapeHtml(c.player) + ' · ' : ''}${c.year ? 'Year ' + c.year + ' · ' : ''}Lvl ${c.level} · Life ${c.life}/${lifeMax(c)} · Focus ${c.focus} · Stress ${c.stress}${arch ? ' · ' + escapeHtml(arch.name) : ''}</div>
       ${c.gmNotes ? `<div class="meta note-preview"><strong>GM:</strong> ${escapeHtml(notePreview(c.gmNotes))}</div>` : (c.notes ? `<div class="meta note-preview">${escapeHtml(notePreview(c.notes))}</div>` : '')}
     </div>
@@ -466,7 +469,7 @@ function sheetHtml(c) {
     ${gm ? `<div class="btn-row" style="margin-bottom:10px"><button class="btn small" onclick="closeChar()">← All characters</button><button class="btn small danger" onclick="deleteCharacter('${c.id}')">Delete</button></div>` : ''}
 
     <div class="panel">
-      <div class="panel-title"><span>${escapeHtml(c.name || '(unnamed)')}${c.isNPC ? '<span class="tag">NPC</span>' : '<span class="tag">PC</span>'}${statusTagHtml(c, true)}</span></div>
+      <div class="panel-title"><span>${escapeHtml(c.name || '(unnamed)')}${c.isNPC ? '<span class="tag">NPC</span>' : '<span class="tag">PC</span>'}${statusTagHtml(c, true)}${effectTagsHtml(c)}</span></div>
       <div class="grid cols-4">
         ${f('Name', inpText('name'))}
         ${f(c.isNPC ? 'Role' : 'Player', inpText('player', c.isNPC ? '' : 'Real name'))}

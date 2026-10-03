@@ -5,18 +5,18 @@
 // instead of leaving the app.
 // ═══════════════════════════════════════════════════════════════
 
-const VIEWS = ['view-characters', 'view-combat', 'view-curriculum', 'view-ledger', 'view-items', 'view-world'];
+const VIEWS = ['view-status', 'view-characters', 'view-combat', 'view-curriculum', 'view-ledger', 'view-items', 'view-world'];
 const GM_ONLY_VIEWS = ['view-items', 'view-world'];
 
-// Items and World are GM-only. Combat is hidden from players until the GM ticks "Combat for players".
+// Items and World are GM-only. The old Combat tab is hidden for everyone unless the GM turns it on.
 function viewAllowed(viewId) {
   if (!VIEWS.includes(viewId)) return false;
+  if (viewId === 'view-combat') return !!state.settings?.combatTab;
   if (session.role === 'gm') return true;
   if (GM_ONLY_VIEWS.includes(viewId)) return false;
-  if (viewId === 'view-combat') return !!state.settings?.playerCombat;
   return true;
 }
-async function setPlayerCombat(on) { await dbWrite('settings/playerCombat', !!on); }
+async function setCombatTab(on) { await dbWrite('settings/combatTab', !!on); }
 
 function currentView() { return document.querySelector('main > .view.active')?.id || 'view-characters'; }
 
@@ -30,6 +30,7 @@ function pushNav(replace) {
   const hash = '#' + st.view.replace('view-', '') + (st.char ? '/' + st.char : '');
   try { history[replace ? 'replaceState' : 'pushState'](st, '', hash); } catch (e) { /* e.g. file:// */ }
 }
+window.addEventListener('resize', () => { if (typeof fitStatus === 'function') fitStatus(); });
 window.addEventListener('popstate', e => {
   const st = e.state;
   if (!session.role || !st) return;
@@ -42,7 +43,7 @@ window.addEventListener('popstate', e => {
 });
 
 function switchView(viewId, replace) {
-  if (!viewAllowed(viewId)) viewId = 'view-characters';
+  if (!viewAllowed(viewId)) viewId = 'view-status';
   document.querySelectorAll('#tabs > button[data-view]').forEach(b => {
     const on = b.dataset.view === viewId;
     b.classList.toggle('active', on);
@@ -51,11 +52,13 @@ function switchView(viewId, replace) {
   document.querySelectorAll('main > .view').forEach(v => v.classList.toggle('active', v.id === viewId));
   try { localStorage.setItem('academy_last_view', viewId); } catch (e) {}
   pushNav(replace);
+  if (typeof applyChrome === 'function') applyChrome();
   if (typeof aiRefreshContext === "function") aiRefreshContext();
 }
 
 function renderAll() {
   if (!session.role) return;
+  renderStatus();
   renderCharacters();
   renderCombat();
   renderCurriculum();
@@ -73,9 +76,10 @@ function renderAll() {
   const showCombat = viewAllowed('view-combat');
   document.getElementById('tab-combat')?.classList.toggle('hidden', !showCombat);
   const ct = document.getElementById('combat-toggle');
-  if (ct) ct.checked = !!state.settings?.playerCombat;
+  if (ct) ct.checked = !!state.settings?.combatTab;
   // a player who is on the Combat tab when the GM hides it gets moved off it
-  if (!showCombat && document.getElementById('view-combat').classList.contains('active')) switchView('view-characters', true);
+  if (!showCombat && document.getElementById('view-combat').classList.contains('active')) switchView('view-status', true);
+  applyChrome();
   const name = document.getElementById('header-campaign-name');
   if (name) name.textContent = state.campaignName;
   // players only have one character, so say so
@@ -92,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Called by showApp() once someone is logged in. The first entry replaces
 // the login page's history slot so Back doesn't land on a blank state.
 function restoreLastView() {
-  let last = 'view-characters';
+  let last = 'view-status';
   try { last = localStorage.getItem('academy_last_view') || last; } catch (e) {}
   switchView(last, true);
 }

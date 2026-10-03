@@ -76,7 +76,7 @@ function aiCompactChar(c) {
 function aiContextLabel() {
   const v = currentView().replace('view-', '');
   if (v === 'characters') return openCharId && state.characters[openCharId] ? `Character: ${state.characters[openCharId].name}` : 'Characters list';
-  return { combat: 'Combat', curriculum: 'Curriculum', ledger: 'Ledger', items: 'Items', world: 'World' }[v] || v;
+  return { status: 'Status screen (live scene)', combat: 'Combat', curriculum: 'Curriculum', ledger: 'Ledger', items: 'Items', world: 'World' }[v] || v;
 }
 
 function aiContext() {
@@ -88,6 +88,7 @@ function aiContext() {
     worldEntries: Object.values(state.world || {}).map(e => ({ name: e.name, kind: e.kind })),
   };
   if (v === 'characters' && openCharId && state.characters[openCharId]) ctx.openCharacter = aiCompactChar(state.characters[openCharId]);
+  if (v === 'status') ctx.scene = { name: state.settings?.sceneName || '', entries: sceneEntries().map(e => ({ name: state.characters[e.charId].name, side: e.side, visibleToPlayers: !!e.visible, life: state.characters[e.charId].life + '/' + lifeMax(state.characters[e.charId]) })) };
   if (v === 'combat') ctx.combat = { active: state.combat.active, round: state.combat.round, order: combatOrder().map(id => state.characters[id].name) };
   if (v === 'ledger') ctx.ledger = Object.values(state.missions || {}).map(m => ({ name: m.name, notes: m.notes }));
   if (v === 'world') ctx.world = Object.values(state.world || {}).map(e => ({ name: e.name, kind: e.kind, text: (e.text || '').slice(0, 600) }));

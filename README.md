@@ -55,3 +55,14 @@ The Curriculum tab's **Import campaign data** button adds anything missing and n
   campaign tree (including GM notes and secrets). Fine for a trusted table; if that matters, lock the
   Firebase database down with security rules and move secrets to a GM-only path.
 - PINs are stored in the database (the GM PIN base64-encoded, player PINs in plain text).
+
+## Status tab (the live screen)
+
+The first tab, and the default for everyone.
+
+- **Players:** one screen with no scrolling — big LIFE with −5/−1/+1/+5, Focus/Energy/Stress counters, tap-to-toggle
+  status effects, and the three pillars with their skills (tap a skill to see the number to roll under). Revealed
+  allies/enemies show as a name and health band only. Starts in focus mode (header hidden); the ☰ button opens a menu.
+- **GM:** all four players with big life controls, group actions (damage/heal/full heal/rest/clear effects), a live feed
+  of what players changed, and a Scene section to bring allies and enemies in (👁 reveals or hides them to players).
+- The old Combat tab is hidden for everyone; the **Combat tab** checkbox in the GM header brings it back.
