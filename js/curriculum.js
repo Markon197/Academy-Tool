@@ -97,7 +97,7 @@ function characterHasAccessToOrigin(c, originText) {
 function curriculumTabs() {
   return session.role === 'gm'
     ? [['talents', 'Talents'], ['skills', 'Techniques'], ['magic', 'Magic schools'], ['professors', 'Professors'], ['clubs', 'Clubs'], ['archetypes', 'Archetypes'], ['unlocks', 'Unlocks']]
-    : [['talents', 'Talents'], ['skills', 'Techniques'], ['magic', 'Magic schools'], ['archetypes', 'Archetypes']];
+    : [['talents', 'Talents'], ['skills', 'Techniques']].concat(state.settings?.playerMagic ? [['magic', 'Magic schools']] : []).concat([['archetypes', 'Archetypes']]);
 }
 
 function renderCurriculum() {

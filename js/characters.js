@@ -433,11 +433,20 @@ function originsHtml(c) {
   const myProfs = (c.professorIds || []).map(id => state.professors[id]).filter(Boolean);
   const myClubs = (c.clubIds || []).map(id => state.clubs[id]).filter(Boolean);
   return `
+  ${gm ? `<div class="field"><label>Magic schools <span class="sub">(decides which magic techniques &amp; talents they can see)</span></label><div>${MAGIC_SCHOOLS.map(s => `
+      <label class="chk"><input type="checkbox" ${(c.schools || []).includes(s.id) ? 'checked' : ''} onchange="toggleSchool('${c.id}','${s.id}')"> <span style="color:${s.color}">${s.id}</span></label>`).join('')}</div></div>`
+    : (state.settings?.playerMagic && (c.schools || []).length ? `<div class="origin"><strong>Magic:</strong> ${(c.schools || []).map(id => `<span class="tag" style="color:${schoolColor(id)};border-color:${schoolColor(id)}">${escapeHtml(id)}</span>`).join('')}</div>` : '')}
   ${gm ? `<div class="field"><label>Professor / discipline (pupil)</label><div>${check('professorIds', c.professorIds, profs) || '<span class="note">No professors in the library yet.</span>'}</div></div>
           <div class="field"><label>Clubs / extracurricular</label><div>${check('clubIds', c.clubIds, clubs) || '<span class="note">No clubs in the library yet.</span>'}</div></div>` : ''}
   ${myProfs.map(p => `<div class="origin"><strong>${escapeHtml(p.name)}</strong> ${p.pillar ? `<span class="tag">${escapeHtml(p.pillar)}</span>` : ''}${p.quote ? `<div class="desc"><em>${escapeHtml(p.quote)}</em></div>` : ''}${p.tableRules ? `<div class="desc"><strong>Rules at the table:</strong> ${escapeHtml(p.tableRules)}</div>` : ''}</div>`).join('')}
   ${myClubs.map(cl => `<div class="origin"><strong>${escapeHtml(cl.name)}</strong>${cl.whatYouDo ? `<div class="desc">${escapeHtml(cl.whatYouDo)}</div>` : ''}${cl.unlockableText && (!cl.secret || (c.unlockedIds || []).includes(cl.id) || gm) ? `<div class="desc"><strong>Signature:</strong> ${escapeHtml(cl.unlockableText)}</div>` : ''}</div>`).join('')}
   ${!myProfs.length && !myClubs.length && !gm ? '<div class="empty-state">No professor or club yet.</div>' : ''}`;
+}
+async function toggleSchool(charId, id) {
+  const c = state.characters[charId];
+  const list = (c.schools || []).slice(), i = list.indexOf(id);
+  if (i === -1) list.push(id); else list.splice(i, 1);
+  await dbWrite(`characters/${charId}/schools`, list);
 }
 async function toggleOrigin(charId, kind, id) {
   const c = state.characters[charId];

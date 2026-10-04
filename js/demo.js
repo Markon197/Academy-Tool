@@ -178,6 +178,8 @@ function seedDemoState() {
     notes: 'Archivist Varn’s assistant. Killed Ser Caldus on Varn’s order (The Teacher Beyond the Wall).', gmNotes: 'Stats are PLACEHOLDERS - the docs give none. Doc spelling: "Princerss November Forna".' }));
   const march = withLife(mk({ name: 'Matriarch March', isNPC: true, year: 0, level: 1, player: '', faction: 'Midnight Archive',
     notes: '', gmNotes: 'No details written down yet. Stats are PLACEHOLDERS.' }));
+  // which magic schools each PC has (decides which magic techniques/talents they can ever see)
+  lucien.schools = ['Curseancy', 'Psychomancy']; dalton.schools = ['Animancy']; drusilla.schools = ['Sunmancy']; fad.schools = ['Demonancy'];
   const characters = Object.fromEntries([lucien, drusilla, fad, dalton, packson, varn, aethyrix, gladius, november, march].map(c => [c.id, c]));
 
   // Mission 1 seals (Back to School 2.docx). Marks are n/5.

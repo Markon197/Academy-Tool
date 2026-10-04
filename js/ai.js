@@ -49,6 +49,7 @@ const AI_TOOLS = [
   { name: 'adjust_counter', description: 'Change a character counter: life, focus, energy, stress, ascension, ruin, detention (hours) or xp.', input_schema: { type: 'object', properties: { character: CHAR_PROP, field: { type: 'string', enum: ['life', 'focus', 'energy', 'stress', 'ascension', 'ruin', 'detention', 'xp'] }, mode: { type: 'string', enum: ['set', 'add'] }, value: { type: 'number' } }, required: ['character', 'field', 'mode', 'value'] } },
   { name: 'set_character_status', description: 'Set a character story status tag (Alive, Injured, Missing, Captured, Dead, Unknown).', input_schema: { type: 'object', properties: { character: CHAR_PROP, status: { type: 'string', enum: ['Alive', 'Injured', 'Missing', 'Captured', 'Dead', 'Unknown'] } }, required: ['character', 'status'] } },
   { name: 'set_character_faction', description: 'Set which faction a character belongs to. Prefer one of the main factions: Midnight Archive, Order of the Last Flame, The First Mother, Wardens of the Wall, The Gilded Tide, The Three Roots, The Imperial Council, Faculty. Empty string clears it.', input_schema: { type: 'object', properties: { character: CHAR_PROP, faction: { type: 'string' } }, required: ['character', 'faction'] } },
+  { name: 'set_magic_schools', description: 'Set which magic schools a character has (Psychomancy, Curseancy, Demonancy, Animancy, Sunmancy, Warfare, Veritancy). This decides which magic techniques and talents they can see. Replaces the whole list.', input_schema: { type: 'object', properties: { character: CHAR_PROP, schools: { type: 'array', items: { type: 'string', enum: ['Psychomancy', 'Curseancy', 'Demonancy', 'Animancy', 'Sunmancy', 'Warfare', 'Veritancy'] } } }, required: ['character', 'schools'] } },
   { name: 'add_status_condition', description: 'Add a temporary status chip (prone, held, -2 on rolls…) to a character, shown in combat.', input_schema: { type: 'object', properties: { character: CHAR_PROP, text: { type: 'string' } }, required: ['character', 'text'] } },
   { name: 'upsert_world_entry', description: 'Create or update a World entry (place, faction, NPC write-up, event, lore).', input_schema: { type: 'object', properties: { name: { type: 'string' }, kind: { type: 'string', enum: ['Place', 'Faction', 'NPC', 'Event', 'Lore', 'Other'] }, text: { type: 'string' }, mode: { type: 'string', enum: ['append', 'replace'], description: 'append to an existing entry of that name, or replace its text' } }, required: ['name', 'kind', 'text'] } },
   { name: 'append_mission_note', description: 'Append to the notes of a mission in the Ledger.', input_schema: { type: 'object', properties: { mission: { type: 'string', description: 'Mission name (or part of it)' }, text: { type: 'string' } }, required: ['mission', 'text'] } },
@@ -64,6 +65,7 @@ function aiCompactChar(c) {
     pillars: c.pillars, skills: c.skills,
     professors: (c.professorIds || []).map(id => state.professors[id]?.name).filter(Boolean),
     clubs: (c.clubIds || []).map(id => state.clubs[id]?.name).filter(Boolean),
+    magicSchools: c.schools || [],
     quickInfo: c.quick, discipline: c.discipline,
     techniques: charTechniques(c).map(t => ({ name: t.name, roll: t.roll, bonus: t.bonus || 0, cooldown: t.cooldownCost, effect: t.effect })),
     talents: list(c.passives).map(r => ({ name: r.name, bonus: r.level, effect: r.effect })),
@@ -275,6 +277,11 @@ function aiPlanAction(tu) {
     case 'set_character_faction': {
       const c = needChar(); act.text = `${c ? c.name : i.character} — faction: ${i.faction || '(none)'}`;
       if (c) act.run = () => dbWrite(`characters/${c.id}/faction`, (i.faction || '').trim());
+      break; }
+    case 'set_magic_schools': {
+      const c = needChar(); const list = (i.schools || []).filter(s => !!schoolById(s));
+      act.text = `${c ? c.name : i.character} — magic schools: ${list.join(', ') || '(none)'}`;
+      if (c) act.run = () => dbWrite(`characters/${c.id}/schools`, list);
       break; }
     case 'add_status_condition': {
       const c = needChar(); act.text = `${c ? c.name : i.character} — status: ${i.text}`;

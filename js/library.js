@@ -36,18 +36,21 @@ function libItem(kind, x, c) {
   const it = { x, isTech, level, school: schoolOf(x), tokens: isTech ? sourceTokens(x) : [x.type].filter(Boolean), cd: isTech ? cdKind(x) : '' };
   if (c) {
     const unlocked = c.unlockedIds || [];
-    const visible = !x.secret || unlocked.includes(x.id);
+    const visible = (!x.secret || unlocked.includes(x.id)) && !/\(draft\)/i.test(x.name);   // unfinished "(draft)" entries stay GM-only
+    // A magic school's techniques and talents are only for characters who HAVE that school (the GM sets it on the sheet).
+    // While "Magic for players" is off, players see no school content at all.
+    const hasSchool = !!schoolById(it.school);
+    const magicOn = !!state.settings?.playerMagic;
+    const schoolOk = !hasSchool || (magicOn && (c.schools || []).includes(it.school));
     if (isTech) {
       const learned = (c.skillIds || []).includes(x.id);
-      it.taken = learned; it.visible = visible || learned;
-      // access comes from the origin text, or from the magic school's teacher (e.g. Prof. Ash teaches Psychomancy)
-      const teacher = schoolById(it.school)?.teacher;
-      const access = characterHasAccessToOrigin(c, x.origin) || (!!teacher && characterHasAccessToOrigin(c, teacher));
-      it.available = learned || (c.level >= level && (x.secret ? unlocked.includes(x.id) : access));
+      const access = hasSchool ? schoolOk : characterHasAccessToOrigin(c, x.origin);
+      it.taken = learned && (!hasSchool || magicOn); it.visible = (learned && (!hasSchool || magicOn)) || (visible && schoolOk);
+      it.available = it.taken || (c.level >= level && schoolOk && (x.secret ? unlocked.includes(x.id) : access));
     } else {
       const rank = (c.talentRanks || {})[x.id] || 0;
-      it.taken = rank > 0; it.rank = rank; it.visible = visible || rank > 0;
-      it.available = rank > 0 || (eligibleRanks(x, c.level) >= 1 && visible);
+      it.taken = rank > 0 && (!hasSchool || magicOn); it.rank = rank; it.visible = it.taken || (visible && schoolOk);
+      it.available = it.taken || (eligibleRanks(x, c.level) >= 1 && visible && schoolOk);
     }
   }
   return it;
@@ -68,7 +71,7 @@ function libFiltered(kind) {
     if (f.maxLevel !== '' && i.level > Number(f.maxLevel)) return false;
     if (f.cd && i.cd !== f.cd) return false;
     if (gm) { if (f.show === 'secret' && !x.secret) return false; }
-    else { const show = f.show || 'available'; if (show === 'available' && !i.available) return false; if (show === 'taken' && !i.taken) return false; }
+    else { const show = f.show === 'taken' ? 'taken' : 'available'; if (show === 'available' && !i.available) return false; if (show === 'taken' && !i.taken) return false; }   // players only ever see what they can have at their level
     return true;
   });
   const key = { level: i => [i.level, i.x.name], name: i => [i.x.name], school: i => [i.school || '~', i.level, i.x.name], source: i => [(i.tokens[0] || '~'), i.level, i.x.name] }[f.sort] || (i => [i.level, i.x.name]);
@@ -88,9 +91,9 @@ function libraryHtml(kind) {
   const noun = isTech ? 'Techniques' : 'Talents';
   const schools = MAGIC_SCHOOLS.map(s => s.id).filter(id => all.some(i => i.school === id));
   const sources = [...new Set(all.flatMap(i => i.tokens))].sort((a, b) => a.localeCompare(b));
-  const maxLvl = Math.max(15, ...all.map(i => i.level));
+  const maxLvl = gm ? Math.max(15, ...all.map(i => i.level)) : (state.characters[session.charId]?.level || 1);   // players can't filter above their own level
   const sel = (field, opts, label, current) => `<div class="field"><label>${label}</label><select onchange="libSet('${kind}','${field}',this.value)">${opts.map(([v, l]) => `<option value="${escapeAttr(v)}" ${String(current) === String(v) ? 'selected' : ''}>${escapeHtml(l)}</option>`).join('')}</select></div>`;
-  const showOpts = gm ? [['', 'Everything'], ['secret', 'Secret only']] : [['available', 'Available to me'], ['taken', 'Taken'], ['all', 'Everything I can see']];
+  const showOpts = gm ? [['', 'Everything'], ['secret', 'Secret only']] : [['available', 'Available to me'], ['taken', 'Taken']];
   const active = ['q', 'school', 'source', 'maxLevel', 'cd', 'show'].some(k => f[k] !== '' && !(k === 'show' && !gm && f.show === 'available'));
 
   const heading = i => f.sort === 'school' ? (i.school || 'No school') : f.sort === 'level' ? `Level ${i.level}` : f.sort === 'source' ? (i.tokens[0] || 'No source') : null;
@@ -169,13 +172,17 @@ async function libGive(kind, id) {
 // ═══════════════════ MAGIC SCHOOLS ═══════════════════
 function magicToggle(key) { if (magicOpen.has(key)) magicOpen.delete(key); else magicOpen.add(key); renderCurriculum(); }
 function browseSchool(kind, school) {
-  libFilters[kind] = { ...libDefault(), school, show: session.role === 'gm' ? '' : 'all', sort: 'level' };
+  libFilters[kind] = { ...libDefault(), school, show: session.role === 'gm' ? '' : 'available', sort: 'level' };
   currView = kind; renderCurriculum();
 }
 
 function magicHtml() {
   const techs = Object.values(state.skills), tals = Object.values(state.talents);
-  return `<div class="magic-grid">${MAGIC_SCHOOLS.map(s => {
+  // players only see the schools their character has; the GM sees all of them
+  const me = session.role === 'gm' ? null : state.characters[session.charId];
+  const schools = me ? MAGIC_SCHOOLS.filter(s => (me.schools || []).includes(s.id)) : MAGIC_SCHOOLS;
+  if (!schools.length) return '<div class="panel"><div class="empty-state">Your character doesn’t practise a school of magic.</div></div>';
+  return `<div class="magic-grid">${schools.map(s => {
     const nt = techs.filter(x => schoolOf(x) === s.id).length, nl = tals.filter(x => schoolOf(x) === s.id).length;
     return `
     <article class="magic-card" style="--sc:${s.color}">

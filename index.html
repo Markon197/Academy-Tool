@@ -84,6 +84,7 @@
     </div>
     <div class="session-info">
       <button class="btn small" id="notice-btn" data-gm-only onclick="toggleNotices()" aria-controls="notices" title="Changes your players made">🔔 <span id="notice-count">0</span></button>
+      <label class="chk dice-toggle" data-gm-only title="Players see no magic-school content until this is on. Then each player sees only their own schools."><input type="checkbox" id="magic-toggle" onchange="setPlayerMagic(this.checked)"> Magic for players</label>
       <label class="chk dice-toggle" data-gm-only title="Players don't see the Ledger tab until this is on."><input type="checkbox" id="ledger-toggle" onchange="setPlayerLedger(this.checked)"> Ledger for players</label>
       <label class="chk dice-toggle" data-gm-only title="The old Combat tab is hidden by default."><input type="checkbox" id="combat-toggle" onchange="setCombatTab(this.checked)"> Combat tab</label>
       <label class="chk dice-toggle" data-gm-only title="Off: the table rolls real dice and the sheet shows target numbers. On: players can roll in the app."><input type="checkbox" id="dice-toggle" onchange="setDigitalRolls(this.checked)"> Digital dice</label>

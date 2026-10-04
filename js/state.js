@@ -21,7 +21,7 @@ function blankCombat() {
 let state = {
   campaignName: 'Campaign',
   gmPin: null,
-  settings: { highWindow: 3, digitalRolls: false, combatTab: false, playerLedger: false, sceneName: '' },
+  settings: { highWindow: 3, digitalRolls: false, combatTab: false, playerLedger: false, playerMagic: false, sceneName: '' },
   characters: {},   // id -> character (PCs and NPCs)
   professors: {},   // id -> professor
   clubs: {},        // id -> club / extracurricular
@@ -62,7 +62,7 @@ function normaliseState(data) {
   const s = {
     campaignName: data.campaignName || 'Campaign',
     gmPin: data.gmPin || null,
-    settings: { highWindow: 3, digitalRolls: false, combatTab: false, playerLedger: false, sceneName: '', ...(data.settings || {}) },
+    settings: { highWindow: 3, digitalRolls: false, combatTab: false, playerLedger: false, playerMagic: false, sceneName: '', ...(data.settings || {}) },
   };
   COLLECTIONS.forEach(k => { s[k] = data[k] || {}; });
   const c = { ...blankCombat(), ...(data.combat || {}) };
@@ -78,7 +78,7 @@ function toList(v) { return Array.isArray(v) ? v.filter(x => x != null) : v ? Ob
 function normaliseCharacter(c) {
   c.pillars = { ...blankPillars(), ...(c.pillars || {}) };
   c.skills = { ...blankSkills(), ...(c.skills || {}) };
-  ['professorIds', 'clubIds', 'skillIds', 'unlockedIds', 'conditions'].forEach(k => { c[k] = toList(c[k]); });
+  ['professorIds', 'clubIds', 'skillIds', 'unlockedIds', 'conditions', 'schools'].forEach(k => { c[k] = toList(c[k]); });   // schools = magic schools this character has
   c.talentRanks = c.talentRanks || {};
   c.techniques = c.techniques || {};
   c.cooldowns = c.cooldowns || {};

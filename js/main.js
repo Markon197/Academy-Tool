@@ -19,6 +19,7 @@ function viewAllowed(viewId) {
 }
 async function setCombatTab(on) { await dbWrite('settings/combatTab', !!on); }
 async function setPlayerLedger(on) { await dbWrite('settings/playerLedger', !!on); }
+async function setPlayerMagic(on) { await dbWrite('settings/playerMagic', !!on); }
 
 function currentView() { return document.querySelector('main > .view.active')?.id || 'view-characters'; }
 
@@ -79,6 +80,7 @@ function renderAll() {
   document.getElementById('tab-combat')?.classList.toggle('hidden', !showCombat);
   document.getElementById('tab-ledger')?.classList.toggle('hidden', !viewAllowed('view-ledger'));
   const lt = document.getElementById('ledger-toggle'); if (lt) lt.checked = !!state.settings?.playerLedger;
+  const mt = document.getElementById('magic-toggle'); if (mt) mt.checked = !!state.settings?.playerMagic;
   const ct = document.getElementById('combat-toggle');
   if (ct) ct.checked = !!state.settings?.combatTab;
   // a player who is on the Combat tab when the GM hides it gets moved off it
