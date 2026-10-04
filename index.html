@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/sheet.css">
 <link rel="stylesheet" href="css/status.css">
+<link rel="stylesheet" href="css/library.css">
 <link rel="stylesheet" href="css/quickedit.css">
 </head>
 <body>
@@ -83,6 +84,7 @@
     </div>
     <div class="session-info">
       <button class="btn small" id="notice-btn" data-gm-only onclick="toggleNotices()" aria-controls="notices" title="Changes your players made">🔔 <span id="notice-count">0</span></button>
+      <label class="chk dice-toggle" data-gm-only title="Players don't see the Ledger tab until this is on."><input type="checkbox" id="ledger-toggle" onchange="setPlayerLedger(this.checked)"> Ledger for players</label>
       <label class="chk dice-toggle" data-gm-only title="The old Combat tab is hidden by default."><input type="checkbox" id="combat-toggle" onchange="setCombatTab(this.checked)"> Combat tab</label>
       <label class="chk dice-toggle" data-gm-only title="Off: the table rolls real dice and the sheet shows target numbers. On: players can roll in the app."><input type="checkbox" id="dice-toggle" onchange="setDigitalRolls(this.checked)"> Digital dice</label>
       <button class="btn small hidden" id="roll-btn" onclick="toggleRoller()" aria-controls="roller">🎲 Roll &amp; log</button>
@@ -98,7 +100,7 @@
     <button data-view="view-characters" id="tab-characters" onclick="switchView('view-characters')">Characters</button>
     <button data-view="view-combat" id="tab-combat" onclick="switchView('view-combat')">Combat</button>
     <button data-view="view-curriculum" onclick="switchView('view-curriculum')">Curriculum</button>
-    <button data-view="view-ledger" onclick="switchView('view-ledger')">Ledger</button>
+    <button data-view="view-ledger" id="tab-ledger" onclick="switchView('view-ledger')">Ledger</button>
     <button data-view="view-items" data-gm-only onclick="switchView('view-items')">Items</button>
     <button data-view="view-world" data-gm-only onclick="switchView('view-world')">World</button>
   </nav>
@@ -144,6 +146,7 @@
 <script src="js/state.js"></script>
 <script src="js/curriculum-seed.js"></script>
 <script src="js/loot-seed.js"></script>
+<script src="js/magic-seed.js"></script>
 <script src="js/rules-seed.js"></script>
 <script src="js/demo.js"></script>
 <script src="js/auth.js"></script>
@@ -154,6 +157,7 @@
 <script src="js/quickedit.js"></script>
 <script src="js/combat.js"></script>
 <script src="js/curriculum.js"></script>
+<script src="js/library.js"></script>
 <script src="js/ledger.js"></script>
 <script src="js/items.js"></script>
 <script src="js/world.js"></script>

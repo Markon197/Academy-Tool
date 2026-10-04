@@ -12,11 +12,13 @@ const GM_ONLY_VIEWS = ['view-items', 'view-world'];
 function viewAllowed(viewId) {
   if (!VIEWS.includes(viewId)) return false;
   if (viewId === 'view-combat') return !!state.settings?.combatTab;
+  if (viewId === 'view-ledger' && session.role !== 'gm') return !!state.settings?.playerLedger;
   if (session.role === 'gm') return true;
   if (GM_ONLY_VIEWS.includes(viewId)) return false;
   return true;
 }
 async function setCombatTab(on) { await dbWrite('settings/combatTab', !!on); }
+async function setPlayerLedger(on) { await dbWrite('settings/playerLedger', !!on); }
 
 function currentView() { return document.querySelector('main > .view.active')?.id || 'view-characters'; }
 
@@ -75,10 +77,13 @@ function renderAll() {
   if (dt) dt.checked = digitalRolls();
   const showCombat = viewAllowed('view-combat');
   document.getElementById('tab-combat')?.classList.toggle('hidden', !showCombat);
+  document.getElementById('tab-ledger')?.classList.toggle('hidden', !viewAllowed('view-ledger'));
+  const lt = document.getElementById('ledger-toggle'); if (lt) lt.checked = !!state.settings?.playerLedger;
   const ct = document.getElementById('combat-toggle');
   if (ct) ct.checked = !!state.settings?.combatTab;
   // a player who is on the Combat tab when the GM hides it gets moved off it
   if (!showCombat && document.getElementById('view-combat').classList.contains('active')) switchView('view-status', true);
+  if (!viewAllowed('view-ledger') && document.getElementById('view-ledger').classList.contains('active')) switchView('view-status', true);
   applyChrome();
   const name = document.getElementById('header-campaign-name');
   if (name) name.textContent = state.campaignName;

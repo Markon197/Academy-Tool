@@ -41,6 +41,8 @@ function seedLibrary() {
     CURRICULUM_SEED.clubs.forEach(c => { lib.clubs[c.id] = c; });
   }
   ARCHETYPES_SEED.forEach(a => { lib.archetypes[a.id] = a; });
+  MAGIC_SEED.skills.forEach(s => { lib.skills[s.id] = s; });
+  MAGIC_SEED.talents.forEach(t => { lib.talents[t.id] = t; });
   LOOT_SEED.concat(MISSION_LOOT_SEED).forEach(i => { lib.items[i.id] = i; });
   return lib;
 }

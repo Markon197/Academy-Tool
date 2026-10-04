@@ -15,6 +15,7 @@ let unlockCharId = null;
 let currSearch = '';
 
 const professorSelect = () => Object.values(state.professors).map(p => [p.id, p.name]);
+const schoolSelect = () => MAGIC_SCHOOLS.map(s => [s.id, s.id]);
 
 const CURR = {
   talents: {
@@ -22,6 +23,7 @@ const CURR = {
     blank: () => ({ name: '', type: '', levelRequirements: [1], description: '', secret: false }),
     fields: [
       { k: 'name', l: 'Name', t: 'text' }, { k: 'type', l: 'Type (Fight, RP, Health…)', t: 'text' },
+      { k: 'school', l: 'Magic school (optional)', t: 'select', options: schoolSelect },
       { k: 'levelRequirements', l: 'Level(s), e.g. 1 or 4;8;12', t: 'levels' },
       { k: 'description', l: 'Description', t: 'area' }, { k: 'secret', l: 'Secret (GM unlocks per character)', t: 'bool' }],
     tags: t => [t.type, 'Lvl ' + (t.levelRequirements || [1]).join('/')],
@@ -32,6 +34,8 @@ const CURR = {
     blank: () => ({ name: '', origin: '', cooldownCost: '', levelRequirement: 0, roll: '', effect: '', secret: false }),
     fields: [
       { k: 'name', l: 'Name', t: 'text' }, { k: 'origin', l: 'Origin (professor / club / item)', t: 'text' },
+      { k: 'school', l: 'Magic school (optional)', t: 'select', options: schoolSelect },
+      { k: 'cast', l: 'Kind (Instant · Sustained · Reaction · Attack…)', t: 'text' },
       { k: 'cooldownCost', l: 'Cooldown / cost (CD 2 · Once per battle · Spend 1 Focus)', t: 'text' },
       { k: 'levelRequirement', l: 'Level', t: 'num' }, { k: 'roll', l: 'Roll (e.g. Body + Force)', t: 'text' },
       { k: 'effect', l: 'Effect', t: 'area' }, { k: 'secret', l: 'Secret (GM unlocks per character)', t: 'bool' }],
@@ -77,7 +81,9 @@ const CURR = {
 function eligibleRanks(talent, level) {
   return (talent.levelRequirements && talent.levelRequirements.length ? talent.levelRequirements : [1]).filter(l => level >= l).length;
 }
-function wordStems(name) { return (name || '').toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length >= 3).map(w => w.slice(0, 4)); }
+// Words that say nothing about WHICH professor or club ("Professor X" / "Prof. Y" must not match each other)
+const STEM_STOPWORDS = new Set(['prof', 'club', 'corp', 'soci', 'work', 'guil', 'grou', 'the', 'and', 'item']);
+function wordStems(name) { return (name || '').toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length >= 3).map(w => w.slice(0, 4)).filter(s => !STEM_STOPWORDS.has(s)); }
 // A technique's free-text origin ("Prof. Ironwell / Martial Discipline") is matched against the
 // names of the character's professors and clubs by word stem. Secret techniques use unlocks instead.
 function characterHasAccessToOrigin(c, originText) {
@@ -87,61 +93,41 @@ function characterHasAccessToOrigin(c, originText) {
   return names.some(n => wordStems(n).some(s => text.includes(s)));
 }
 
+// One tab bar for everyone. TECHNIQUES are things you actively use; TALENTS are always on.
+function curriculumTabs() {
+  return session.role === 'gm'
+    ? [['talents', 'Talents'], ['skills', 'Techniques'], ['magic', 'Magic schools'], ['professors', 'Professors'], ['clubs', 'Clubs'], ['archetypes', 'Archetypes'], ['unlocks', 'Unlocks']]
+    : [['talents', 'Talents'], ['skills', 'Techniques'], ['magic', 'Magic schools'], ['archetypes', 'Archetypes']];
+}
+
 function renderCurriculum() {
   const root = document.getElementById('curriculum-root');
   if (!root) return;
-  root.innerHTML = session.role === 'player' ? playerCurriculumHtml() : gmCurriculumHtml();
+  const gm = session.role === 'gm', tabs = curriculumTabs();
+  if (!tabs.some(t => t[0] === currView)) currView = 'talents';
+  const body = currView === 'talents' || currView === 'skills' ? libraryHtml(currView)
+    : currView === 'magic' ? magicHtml()
+    : currView === 'unlocks' ? renderUnlocks()
+    : gm ? renderAdmin(currView) : playerArchetypesHtml();
+  root.innerHTML = `
+  <div class="toolbar">
+    <div class="subnav" role="tablist">${tabs.map(([k, l]) => `<button role="tab" class="${currView === k ? 'active' : ''}" onclick="currView='${k}';currDraft=null;renderCurriculum()">${l}</button>`).join('')}</div>
+    ${gm ? '<div class="btn-row"><button class="btn small" onclick="importCurriculum()" title="Adds anything missing from the campaign documents; never overwrites your edits">📥 Import campaign data</button></div>' : ''}
+  </div>
+  ${body}`;
 }
 
-// ═══════════════════ PLAYER VIEW ═══════════════════
-function talentCardHtml(t, rank) {
-  const th = t.levelRequirements && t.levelRequirements.length ? t.levelRequirements : [1];
-  return `<div class="card talent-card ${rank > 0 ? 'taken' : ''}">
-    <div class="badge general">${escapeHtml(t.type) || 'Talent'} · ${th.length > 1 ? `Level ${th.join(' / ')} · Rank ${rank}/${th.length}` : `from Level ${th[0]}`}</div>
-    <h3>${escapeHtml(t.name)} ${rank > 0 ? '<span class="tag on-card">✓ taken</span>' : ''}</h3>
-    <p style="margin-top:4px;white-space:pre-wrap">${escapeHtml(t.description) || '—'}</p></div>`;
-}
-function skillCardHtml(s, taken) {
-  return `<div class="card talent-card ${taken ? 'taken' : ''}">
-    <div class="badge teacher">${escapeHtml(s.origin) || 'Origin'} · from Level ${s.levelRequirement || 0}${s.cooldownCost ? ' · ' + escapeHtml(s.cooldownCost) : ''}</div>
-    <h3>${escapeHtml(s.name)} ${taken ? '<span class="tag on-card">✓ learned</span>' : ''}</h3>
-    ${s.roll ? `<p class="sub" style="margin-top:4px">Roll: ${escapeHtml(s.roll)}</p>` : ''}
-    <p style="margin-top:4px;white-space:pre-wrap">${escapeHtml(s.effect) || '—'}</p></div>`;
-}
-
-function playerCurriculumHtml() {
+// ═══════════════════ PLAYER: archetypes + revealed secrets ═══════════════════
+function playerArchetypesHtml() {
   const c = state.characters[session.charId];
   if (!c) return '<div class="empty-state">No character found.</div>';
-  const unlocked = c.unlockedIds || [], ranks = c.talentRanks || {}, learned = c.skillIds || [];
-  const q = currSearch.toLowerCase();
-  const hit = x => !q || (x.name + ' ' + (x.description || x.effect || '')).toLowerCase().includes(q);
-  const talents = Object.values(state.talents).filter(t => eligibleRanks(t, c.level) >= 1).filter(t => !t.secret || unlocked.includes(t.id)).filter(hit)
-    .sort((a, b) => (a.levelRequirements?.[0] || 1) - (b.levelRequirements?.[0] || 1) || a.name.localeCompare(b.name));
-  const skills = Object.values(state.skills).filter(s => c.level >= (s.levelRequirement || 0))
-    .filter(s => learned.includes(s.id) || (s.secret ? unlocked.includes(s.id) : characterHasAccessToOrigin(c, s.origin))).filter(hit)
-    .sort((a, b) => (a.origin || '').localeCompare(b.origin || ''));
   return `
-  <div class="toolbar"><div class="field grow"><label>Search</label><input type="text" value="${escapeAttr(currSearch)}" placeholder="Filter talents and techniques…" oninput="currSearch=this.value;renderCurriculum()"></div></div>
-  <div class="panel"><div class="panel-title">General talents (Level ${c.level})</div>
-    ${talents.length ? talents.map(t => talentCardHtml(t, ranks[t.id] || 0)).join('') : '<div class="empty-state">Nothing available.</div>'}</div>
-  <div class="panel"><div class="panel-title">Techniques open to you</div>
-    ${skills.length ? skills.map(s => skillCardHtml(s, learned.includes(s.id))).join('') : '<div class="empty-state">No techniques yet — you need access through a professor or club.</div>'}</div>
   <div class="panel"><div class="panel-title">Archetypes</div>
     ${Object.values(state.archetypes).sort((a, b) => a.name.localeCompare(b.name)).map(a => `<div class="origin ${a.id === c.archetypeId ? 'mine' : ''}"><strong>${escapeHtml(a.name)}</strong> <span class="sub">“${escapeHtml(a.tagline)}”</span>${a.id === c.archetypeId ? ' <span class="tag">yours</span>' : ''}<div class="desc"><strong>${escapeHtml(a.talent)}:</strong> ${escapeHtml(a.advantage)}</div><div class="desc"><span class="tag danger">Condition</span> ${escapeHtml(a.condition)}${a.conditionText ? ' — ' + escapeHtml(a.conditionText) : ''}</div></div>`).join('')}</div>
   ${(c.professorIds || []).map(id => state.professors[id]).filter(Boolean).map(p => p.secretRevealed && p.secretNotes ? `<div class="panel"><div class="panel-title">${escapeHtml(p.name)} — revealed</div><p style="white-space:pre-wrap">${escapeHtml(p.secretNotes)}</p></div>` : '').join('')}`;
 }
 
-// ═══════════════════ GM VIEW ═══════════════════
-function gmCurriculumHtml() {
-  const tabs = Object.entries(CURR).map(([k, v]) => [k, v.label]).concat([['unlocks', 'Unlocks']]);
-  return `
-  <div class="toolbar">
-    <div class="subnav" role="tablist">${tabs.map(([k, l]) => `<button role="tab" class="${currView === k ? 'active' : ''}" onclick="currView='${k}';currDraft=null;renderCurriculum()">${l}</button>`).join('')}</div>
-    <div class="btn-row"><button class="btn small" onclick="importCurriculum()" title="Adds anything missing from the campaign documents; never overwrites your edits">📥 Import campaign data</button></div>
-  </div>
-  ${currView === 'unlocks' ? renderUnlocks() : renderAdmin(currView)}`;
-}
-
+// ═══════════════════ GM ═══════════════════
 function renderAdmin(type) {
   const T = CURR[type];
   const q = currSearch.toLowerCase();
@@ -249,12 +235,13 @@ async function importCurriculum() {
     ['talents', CURRICULUM_SEED.talents], ['skills', CURRICULUM_SEED.skills],
     ['professors', CURRICULUM_SEED.professors], ['clubs', CURRICULUM_SEED.clubs],
     ['archetypes', ARCHETYPES_SEED], ['items', LOOT_SEED.concat(MISSION_LOOT_SEED)],
+    ['skills', MAGIC_SEED.skills], ['talents', MAGIC_SEED.talents],   // magic schools
   ];
   const updates = {};
   sets.forEach(([coll, list]) => list.forEach(x => { if (!state[coll][x.id]) updates[coll + '/' + x.id] = x; }));
   const n = Object.keys(updates).length;
   if (!n) { showToast('Everything is already imported.'); return; }
-  if (!confirm(`Import ${n} missing entries (talents, techniques, professors, clubs, archetypes, loot)? Existing entries are never overwritten.`)) return;
+  if (!confirm(`Import ${n} missing entries (talents, techniques, magic schools, professors, clubs, archetypes, loot)? Existing entries are never overwritten.`)) return;
   await dbUpdate(updates);
   showToast(`Imported ${n} entries.`);
 }
