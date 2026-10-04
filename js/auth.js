@@ -63,9 +63,10 @@ async function doSetup() {
   const err = document.getElementById('setup-error');
   err.textContent = '';
   const campaignName = document.getElementById('setup-campaign-name').value.trim() || 'Campaign';
-  const url = document.getElementById('setup-db-url').value.trim();
+  const url = cleanDbUrl(document.getElementById('setup-db-url').value);
   const pin = document.getElementById('setup-gm-pin').value.trim();
   if (!url || !pin) { err.textContent = 'Database URL and GM PIN are required.'; return; }
+  if (!validDbUrl(url)) { err.textContent = 'That doesn’t look like a Firebase database address (https://….firebasedatabase.app).'; return; }
   if (!(await initFirebase(url))) { err.textContent = 'Could not connect to the database.'; return; }
   try {
     const existing = await dbRead();
@@ -97,6 +98,8 @@ async function doLogin() {
   const urlFieldVisible = !document.getElementById('login-db-url-field').classList.contains('hidden');
   if (urlFieldVisible) url = document.getElementById('login-db-url').value.trim();
   if (!url || !pin) { err.textContent = 'Database URL and PIN are required.'; return; }
+  url = cleanDbUrl(url);
+  if (!validDbUrl(url)) { err.textContent = 'That doesn’t look like the database address. It should look like https://….firebasedatabase.app (your GM has a link that fills it in for you).'; return; }
   await loginWith(url, pin, false);
 }
 
@@ -112,7 +115,8 @@ async function loginWith(url, pin, silent) {
   };
   if (!(await initFirebase(url))) return fail('Could not connect to the database.');
   try {
-    const data = await dbRead();
+    // A wrong address used to leave the login spinning forever with no message; give up after 10 seconds.
+    const data = await Promise.race([dbRead(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 10000))]);
     if (!data) return fail('No campaign found at this URL.', true);
     // PINs are compared ignoring case, so "henry" works as well as "Henry"
     const same = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
@@ -135,8 +139,35 @@ async function loginWith(url, pin, silent) {
     return true;
   } catch (e) {
     console.error(e);
-    return fail('Login failed: ' + e.message);
+    if (e.message === 'timeout' && !silent) document.getElementById('login-db-url-field').classList.remove('hidden');   // let them correct a bad saved address
+    return fail(e.message === 'timeout'
+      ?'Couldn’t reach the database. Check your connection and that the address is exactly right (ask your GM for the invite link).'
+      : 'Login failed: ' + e.message);
   }
+}
+
+// ── Database address helpers ──
+// Players used to type this long address by hand, and a slightly wrong one made the login hang.
+function cleanDbUrl(raw) {
+  let s = String(raw || '').trim();
+  if (!s) return '';
+  if (!/^https?:\/\//i.test(s)) s = 'https://' + s;
+  try { return 'https://' + new URL(s).hostname.toLowerCase(); } catch (e) { return ''; }   // keeps just the host: drops "/", "/campaign.json", spaces
+}
+function validDbUrl(u) { return /^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.(firebasedatabase\.app|firebaseio\.com)$/.test(u || ''); }
+
+// An invite link looks like  https://…/Academy-Tool/#db=<address>. Opening it saves the address in
+// this browser, so the player only has to type their PIN. (The address lives in the link you send,
+// never in the public repo.)
+function consumeInviteLink() {
+  const m = /[#&]db=([^&]+)/.exec(location.hash || '');
+  if (!m) return false;
+  let url = '';
+  try { url = cleanDbUrl(decodeURIComponent(m[1])); } catch (e) {}
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}   // don't leave the address in the URL bar
+  if (!validDbUrl(url)) return false;
+  try { localStorage.setItem('academy_db_url', url); } catch (e) {}
+  return true;
 }
 
 // The PIN is remembered only in this browser (like a "remember me" cookie) so the app can
@@ -155,6 +186,7 @@ function doLogout() {
 }
 
 async function initAuthOnLoad() {
+  const fromInvite = consumeInviteLink();
   // Demo mode (public sample data) is hidden unless the URL has ?demo
   if (new URLSearchParams(location.search).has('demo')) document.querySelectorAll('.demo-box').forEach(el => el.classList.remove('hidden'));
   // Already signed in on this device? Resume without asking again.
@@ -170,4 +202,5 @@ async function initAuthOnLoad() {
   }
   // Otherwise land on login; the GM uses "Set up a new campaign" there the first time.
   showLoginScreen();
+  if (fromInvite) document.getElementById('login-campaign-name').textContent = 'Address saved — enter your PIN';
 }
