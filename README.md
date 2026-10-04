@@ -66,3 +66,14 @@ The first tab, and the default for everyone.
 - **GM:** all four players with big life controls, group actions (damage/heal/full heal/rest/clear effects), a live feed
   of what players changed, and a Scene section to bring allies and enemies in (👁 reveals or hides them to players).
 - The old Combat tab is hidden for everyone; the **Combat tab** checkbox in the GM header brings it back.
+
+## Deploying an update
+
+Local scripts and styles in `index.html` carry a `?v=` stamp so browsers never mix old and new files after a deploy.
+Re-stamp before pushing:
+
+```
+V=$(date +%Y%m%d%H%M); sed -i -E "s#(src=\"js/[a-z-]+\.js)(\?v=[0-9a-z]+)?\"#\1?v=$V\"#g; s#(href=\"css/[a-z-]+\.css)(\?v=[0-9a-z]+)?\"#\1?v=$V\"#g" index.html
+```
+
+(It only touches the local `js/` and `css/` references, not the Firebase CDN scripts.)
