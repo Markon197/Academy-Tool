@@ -79,7 +79,7 @@ function libFiltered(kind) {
   return { items, all };
 }
 
-function libSet(kind, field, value) { libFilters[kind][field] = value; renderCurriculum(); }
+function libSet(kind, field, value) { libFilters[kind][field] = value; withFocus(renderCurriculum); }   // keeps the cursor in the search box
 function libReset(kind) { libFilters[kind] = libDefault(); renderCurriculum(); }
 function libToggle(id) { if (libOpen.has(id)) libOpen.delete(id); else libOpen.add(id); renderCurriculum(); }
 
@@ -103,7 +103,7 @@ function libraryHtml(kind) {
   return `
   <div class="panel lib-bar">
     <div class="lib-top">
-      <div class="field grow"><label>Search ${noun.toLowerCase()}</label><input type="text" value="${escapeAttr(f.q)}" placeholder="Name, effect, school…" oninput="libSet('${kind}','q',this.value)"></div>
+      <div class="field grow"><label>Search ${noun.toLowerCase()}</label><input type="text" id="lib-search-${kind}" value="${escapeAttr(f.q)}" placeholder="Name, effect, school…" oninput="libSet('${kind}','q',this.value)"></div>
       ${gm ? `<button class="btn primary" onclick="openDraft('${kind}',null)">+ New ${isTech ? 'technique' : 'talent'}</button>` : ''}
     </div>
     <div class="lib-chips">

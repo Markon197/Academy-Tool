@@ -137,7 +137,7 @@ function renderAdmin(type) {
   return `
   <div class="panel">
     <div class="panel-title">${T.label} <span class="sub">${Object.keys(state[T.coll]).length} total</span><button class="btn small" onclick="openDraft('${type}',null)">+ New ${T.one}</button></div>
-    <div class="field"><input type="text" placeholder="Search ${T.label.toLowerCase()}…" value="${escapeAttr(currSearch)}" oninput="currSearch=this.value;renderCurriculum()"></div>
+    <div class="field"><input type="text" id="curr-search" placeholder="Search ${T.label.toLowerCase()}…" value="${escapeAttr(currSearch)}" oninput="currSearch=this.value;withFocus(renderCurriculum)"></div>
     ${list.length ? list.map(x => `
       <div class="roster-item">
         <div><div class="name">${escapeHtml(x.name)} ${T.tags(x).filter(Boolean).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}${x.secret ? '<span class="tag danger">🔒 secret</span>' : ''}</div>

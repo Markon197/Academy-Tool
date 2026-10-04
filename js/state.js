@@ -94,6 +94,7 @@ function normaliseCharacter(c) {
   c.xp = Number(c.xp) || 0; c.xpMax = Number(c.xpMax) || 0; c.background = c.background || '';
   c.status = c.status || 'Alive';
   c.faction = c.faction || '';
+  c.group = c.group || '';
   ['life', 'focus', 'energy', 'stress', 'ascension', 'ruin', 'detention'].forEach(k => { c[k] = Number(c[k]) || 0; });
   return c;
 }

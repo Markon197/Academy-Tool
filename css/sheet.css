@@ -229,3 +229,13 @@ textarea.notes-box:disabled { color: var(--text); opacity: 1; }
 .notes-gm { border-color: var(--border-gold); background: linear-gradient(180deg, #2a1d1a, var(--surface)); }
 .note-preview { margin-top: 3px; color: var(--text2); font-style: italic; }
 .combat-gmnote { margin-top: 6px; font-size: 12px; color: #6b2a2a; background: rgba(139,31,47,.08); border-left: 3px solid #8a1f2f; padding: 4px 8px; border-radius: 0 var(--radius) var(--radius) 0; }
+
+/* grouped cast roster */
+.cast-chips { margin: 8px 0 0; align-items: center; }
+.cast-collapse { margin-left: auto; display: inline-flex; gap: 6px; align-items: center; }
+.cast-group { padding: 6px 14px 10px; margin-bottom: 10px; }
+.cast-head { cursor: pointer; margin: 0; padding: 8px 0; display: flex; align-items: center; gap: 8px; color: var(--gold-bright); font-size: 16px; letter-spacing: .04em; user-select: none; }
+.cast-head i { font-style: normal; font-size: 12px; color: var(--text3); border: 1px solid var(--border); border-radius: 999px; padding: 0 9px; }
+.cast-head:hover { color: #fff; }
+.cast-caret { width: 14px; color: var(--text2); }
+.cast-group .roster-item { padding: 8px 12px; margin-bottom: 5px; }

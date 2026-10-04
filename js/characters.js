@@ -16,6 +16,8 @@ let openCharId = null;      // GM: which sheet is open
 let charFilter = 'all';     // 'all' | 'pc' | 'npc'
 let charStatusFilter = '';  // '' = any story status
 let charFactionFilter = ''; // '' = any faction
+let charGroupFilter = '';   // '' = every group
+let charGroupBy = 'group';  // group | faction | status | year | az
 let charSearch = '';
 let showAllMoves = false;
 let techDraft = null;       // GM: custom technique being written
@@ -29,7 +31,7 @@ function canEdit(c, field) {
 
 function blankCharacter(isNPC) {
   const c = normaliseCharacter({
-    id: uid(), name: '', isNPC, player: '', year: 1, level: 1, status: 'Alive', faction: '',
+    id: uid(), name: '', isNPC, player: '', year: 1, level: 1, status: 'Alive', faction: '', group: '',
     focus: isNPC ? 0 : 1, energy: isNPC ? 0 : 5, stress: 0, ascension: 0, ruin: 0, detention: 0,
     archetypeId: '', professorIds: [], clubIds: [], skillIds: [], unlockedIds: [],
     talentRanks: {}, techniques: {}, inventory: {}, notes: '', gmNotes: '', pin: '',
@@ -144,18 +146,27 @@ function renderCharacters() {
   if (openCharId && !state.characters[openCharId]) openCharId = null;
   if (openCharId) { root.innerHTML = sheetHtml(state.characters[openCharId]); autosizeAllNotes(); return; }
 
-  const list = Object.values(state.characters)
+  const everyone = Object.values(state.characters);
+  const q = charSearch.toLowerCase();
+  const matches = everyone
     .filter(c => charFilter === 'all' || (charFilter === 'pc' && !c.isNPC) || (charFilter === 'npc' && c.isNPC))
     .filter(c => !charStatusFilter || c.status === charStatusFilter)
     .filter(c => !charFactionFilter || c.faction === charFactionFilter)
-    .filter(c => !charSearch || c.name.toLowerCase().includes(charSearch.toLowerCase()) || (c.player || '').toLowerCase().includes(charSearch.toLowerCase()))
+    .filter(c => !q || (c.name + ' ' + (c.player || '') + ' ' + (c.faction || '') + ' ' + (c.notes || '')).toLowerCase().includes(q))
     .sort((a, b) => (a.isNPC - b.isNPC) || a.name.localeCompare(b.name));
+  // chips show how many are in each group (before the group chip itself is applied)
+  const groupCounts = {};
+  matches.forEach(c => { const k = rosterGroupKey(c); groupCounts[k] = (groupCounts[k] || 0) + 1; });
+  if (charGroupFilter && !groupCounts[charGroupFilter]) charGroupFilter = '';
+  const list = charGroupFilter ? matches.filter(c => rosterGroupKey(c) === charGroupFilter) : matches;
+  const filtering = !!(charSearch || charStatusFilter || charFactionFilter || charFilter !== 'all' || charGroupFilter);
+  const groups = orderedGroups(Object.keys(groupCounts));
 
   root.innerHTML = `
   <div class="panel">
-    <div class="panel-title">Characters &amp; NPCs</div>
+    <div class="panel-title">Characters &amp; NPCs <span class="sub"><strong>${list.length}</strong> of ${everyone.length}</span></div>
     <div class="toolbar">
-      <div class="field grow"><label>Search</label><input type="text" placeholder="Name or player…" value="${escapeAttr(charSearch)}" oninput="charSearch=this.value;renderCharacters()"></div>
+      <div class="field grow"><label>Search</label><input type="text" id="char-search" placeholder="Name, player, faction, notes…" value="${escapeAttr(charSearch)}" oninput="charSearch=this.value;withFocus(renderCharacters)"></div>
       <div class="field"><label>Filter</label>
         <select onchange="charFilter=this.value;renderCharacters()">
           <option value="all" ${charFilter === 'all' ? 'selected' : ''}>All</option>
@@ -166,10 +177,69 @@ function renderCharacters() {
         <select onchange="charStatusFilter=this.value;renderCharacters()"><option value="">Any</option>${CHAR_STATUSES.map(s => `<option ${charStatusFilter === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
       <div class="field"><label>Faction</label>
         <select onchange="charFactionFilter=this.value;renderCharacters()"><option value="">Any</option>${allFactions().map(f => `<option ${charFactionFilter === f ? 'selected' : ''}>${escapeHtml(f)}</option>`).join('')}</select></div>
+      <div class="field"><label>Group by</label>
+        <select onchange="charGroupBy=this.value;charGroupFilter='';renderCharacters()">${[['group', 'Cast group'], ['faction', 'Faction'], ['status', 'Status'], ['year', 'Year'], ['az', 'A–Z (no groups)']].map(([v, l]) => `<option value="${v}" ${charGroupBy === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
       <div class="btn-row"><button class="btn primary" onclick="newCharacter(false)">+ New PC</button><button class="btn" onclick="newCharacter(true)">+ New NPC</button></div>
     </div>
-    ${list.length ? list.map(rosterItemHtml).join('') : '<div class="empty-state">No characters yet — create one to get started.</div>'}
-  </div>`;
+    ${charGroupBy !== 'az' ? `
+    <div class="lib-chips cast-chips">
+      <button class="chip ${charGroupFilter === '' ? 'on' : ''}" onclick="charGroupFilter='';renderCharacters()">All <i>${matches.length}</i></button>
+      ${groups.map(g => `<button class="chip ${charGroupFilter === g ? 'on' : ''}" onclick="charGroupFilter='${escapeAttr(g).replace(/'/g, '&#39;')}';renderCharacters()">${escapeHtml(g)} <i>${groupCounts[g]}</i></button>`).join('')}
+      <span class="cast-collapse"><button class="btn small" onclick="collapseRoster(true)">Collapse all</button> <button class="btn small" onclick="collapseRoster(false)">Expand all</button>${filtering ? ' <button class="btn small" onclick="resetRosterFilters()">Reset filters</button>' : ''}</span>
+    </div>` : (filtering ? '<div class="btn-row" style="margin-bottom:8px"><button class="btn small" onclick="resetRosterFilters()">Reset filters</button></div>' : '')}
+  </div>
+  ${!list.length ? `<div class="panel"><div class="empty-state">${everyone.length ? 'Nobody matches these filters.' : 'No characters yet — create one to get started.'}</div></div>`
+    : charGroupBy === 'az' ? `<div class="panel">${list.slice().sort((a, b) => a.name.localeCompare(b.name)).map(rosterItemHtml).join('')}</div>`
+    : groups.filter(g => list.some(c => rosterGroupKey(c) === g)).map(g => {
+        const items = list.filter(c => rosterGroupKey(c) === g), key = charGroupBy + ':' + g;
+        const open = filtering || !rosterCollapsed.has(key);   // searching or filtering always shows the matches
+        return `<section class="panel cast-group">
+          <h3 class="cast-head" onclick="toggleRosterGroup('${escapeAttr(key).replace(/'/g, '&#39;')}')" aria-expanded="${open}"><span class="cast-caret">${open ? '▾' : '▸'}</span> ${escapeHtml(g)} <i>${items.length}</i></h3>
+          ${open ? items.map(rosterItemHtml).join('') : ''}
+        </section>`;
+      }).join('')}`;
+}
+
+// ── Roster grouping ──
+// "Cast group" is the default grouping. A character can set it by hand; otherwise it is worked out.
+const CAST_GROUP_ORDER = ['Player characters', 'Students', 'Faculty & staff', 'Empire & factions', 'Mission 1 — Hollowlake', 'Mission 2 — Gravemarch', 'Companions & family', 'Other NPCs'];
+function castGroup(c) {
+  if (!c.isNPC) return 'Player characters';
+  if (c.group) return c.group;
+  if (c.faction === 'Faculty') return 'Faculty & staff';
+  if (c.year > 0) return 'Students';
+  return c.faction ? 'Empire & factions' : 'Other NPCs';
+}
+function rosterGroupKey(c) {
+  switch (charGroupBy) {
+    case 'faction': return c.faction || 'No faction';
+    case 'status': return c.status || 'Alive';
+    case 'year': return c.year > 0 ? 'Year ' + c.year : 'No year';
+    default: return castGroup(c);
+  }
+}
+function orderedGroups(keys) {
+  const rank = k => charGroupBy === 'group' ? (CAST_GROUP_ORDER.includes(k) ? CAST_GROUP_ORDER.indexOf(k) : 50)
+    : charGroupBy === 'status' ? CHAR_STATUSES.indexOf(k) : 0;
+  return keys.slice().sort((a, b) => rank(a) - rank(b)
+    || (['No faction', 'No year'].includes(a) - ['No faction', 'No year'].includes(b))
+    || a.localeCompare(b, undefined, { numeric: true }));
+}
+let rosterCollapsed = (() => { try { return new Set(JSON.parse(localStorage.getItem('academy_roster_collapsed') || '[]')); } catch (e) { return new Set(); } })();
+function saveCollapsed() { try { localStorage.setItem('academy_roster_collapsed', JSON.stringify([...rosterCollapsed])); } catch (e) {} }
+function toggleRosterGroup(key) { if (rosterCollapsed.has(key)) rosterCollapsed.delete(key); else rosterCollapsed.add(key); saveCollapsed(); renderCharacters(); }
+function collapseRoster(all) {
+  const keys = new Set(Object.values(state.characters).map(c => charGroupBy + ':' + rosterGroupKey(c)));
+  if (all) keys.forEach(k => rosterCollapsed.add(k)); else keys.forEach(k => rosterCollapsed.delete(k));
+  saveCollapsed(); renderCharacters();
+}
+function resetRosterFilters() { charSearch = ''; charFilter = 'all'; charStatusFilter = ''; charFactionFilter = ''; charGroupFilter = ''; renderCharacters(); }
+
+// Re-render a list while a search box has focus without losing the cursor (every re-render rebuilds the input).
+function withFocus(renderFn) {
+  const a = document.activeElement, id = a && a.id, s = a && a.selectionStart, e = a && a.selectionEnd;
+  renderFn();
+  if (id) { const n = document.getElementById(id); if (n) { n.focus(); try { n.setSelectionRange(s, e); } catch (_) {} } }
 }
 
 // Every faction in use, plus the suggestions, for the filter and the sheet's autocomplete
@@ -522,6 +592,7 @@ function sheetHtml(c) {
       </div>
       <div class="grid cols-3">
         ${f('Status', statusFieldHtml(c))}
+        ${gm && c.isNPC ? f('Cast group', `<select onchange="setField('${c.id}','group',this.value)"><option value="">— automatic (${escapeHtml(castGroup({ ...c, group: '' }))}) —</option>${CAST_GROUP_ORDER.filter(g => g !== 'Player characters' && g !== 'Other NPCs').concat(c.group && !CAST_GROUP_ORDER.includes(c.group) ? [c.group] : []).map(g => `<option ${c.group === g ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}</select>`) : ''}
         ${f('Faction', gm ? `<select onchange="pickFaction('${c.id}',this)"><option value="">— none —</option>${allFactions().map(x => `<option value="${escapeAttr(x)}" ${c.faction === x ? 'selected' : ''}>${escapeHtml(x)}</option>`).join('')}<option value="__custom">Custom…</option></select>` : `<div>${c.faction ? escapeHtml(c.faction) : '—'}</div>`)}
         ${f('Archetype', gm ? `<select onchange="setField('${c.id}','archetypeId',this.value)"><option value="">— none —</option>${archList.map(a => `<option value="${a.id}" ${a.id === c.archetypeId ? 'selected' : ''}>${escapeHtml(a.name)}</option>`).join('')}</select>` : `<div>${arch ? escapeHtml(arch.name) : '—'}</div>`)}
         ${gm && !c.isNPC ? f('Player PIN (login)', `<input type="text" maxlength="8" value="${escapeAttr(c.pin)}" onchange="setField('${c.id}','pin',this.value)">`) : ''}
