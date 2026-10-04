@@ -97,7 +97,8 @@ function characterHasAccessToOrigin(c, originText) {
 function curriculumTabs() {
   return session.role === 'gm'
     ? [['talents', 'Talents'], ['skills', 'Techniques'], ['magic', 'Magic schools'], ['professors', 'Professors'], ['clubs', 'Clubs'], ['archetypes', 'Archetypes'], ['unlocks', 'Unlocks']]
-    : [['talents', 'Talents'], ['skills', 'Techniques']].concat(state.settings?.playerMagic ? [['magic', 'Magic schools']] : []).concat([['archetypes', 'Archetypes']]);
+    // Players have no Techniques overview: a professor grants techniques, you don't pick them. Their own are on their sheet.
+    : [['talents', 'Talents']].concat(state.settings?.playerMagic ? [['magic', 'Magic schools']] : []).concat([['archetypes', 'Archetypes']]);
 }
 
 function renderCurriculum() {

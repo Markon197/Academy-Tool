@@ -88,6 +88,10 @@ function cooldownLabel(c, key) {
   if (!v) return '';
   if (v === 'battle') return 'used this battle';
   if (v === 'rest') return 'used until rest';
+  if (typeof v === 'object') {                      // timed cooldown: ready once the world clock reaches v.until
+    const left = (Number(v.until) || 0) - worldMinutes();
+    return left > 0 ? `ready in ${fmtDuration(left)}` : '';   // expired = ready, no manual reset needed
+  }
   return `ready in ${v} round${v > 1 ? 's' : ''}`;
 }
 
@@ -369,14 +373,16 @@ async function useTechnique(charId, key) {
   if (!c || !canActAs(charId)) return;
   const t = charTechniques(c).find(x => x.key === key);
   if (!t) return;
-  if ((c.cooldowns || {})[key]) { showToast(`${t.name} is not ready (${cooldownLabel(c, key)}).`); return; }
+  if (cooldownLabel(c, key)) { showToast(`${t.name} is not ready (${cooldownLabel(c, key)}).`); return; }
   const cd = parseCooldown(t.cooldownCost);
   if (cd.focus && c.focus < cd.focus) { showToast(`${t.name} costs ${cd.focus} Focus — ${c.name} has ${c.focus}.`); return; }
   if (cd.energy && c.energy < cd.energy) { showToast(`${t.name} costs ${cd.energy} Energy — ${c.name} has ${c.energy}.`); return; }
   const updates = {};
   if (cd.focus) updates[`characters/${charId}/focus`] = c.focus - cd.focus;
   if (cd.energy) updates[`characters/${charId}/energy`] = c.energy - cd.energy;
-  if (cd.perBattle) updates[`characters/${charId}/cooldowns/${key}`] = 'battle';
+  // Timed cooldowns (off by default): anything measured in hours/days becomes "ready at world-time X".
+  if (timedCooldownsOn() && cd.hours) updates[`characters/${charId}/cooldowns/${key}`] = { until: worldMinutes() + cd.hours * 60 };
+  else if (cd.perBattle) updates[`characters/${charId}/cooldowns/${key}`] = 'battle';
   else if (cd.rounds) updates[`characters/${charId}/cooldowns/${key}`] = cd.rounds;
   else if (cd.perRest) updates[`characters/${charId}/cooldowns/${key}`] = 'rest';
   if (Object.keys(updates).length) await dbUpdate(updates);

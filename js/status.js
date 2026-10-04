@@ -204,7 +204,7 @@ function playerStatusHtml(c) {
       <button class="ps-menu" onclick="openStatusMenu()" aria-label="Menu">☰</button>
       <div class="ps-title">
         <div class="ps-name">${escapeHtml(c.name)} ${statusTagHtml(c, false)}</div>
-        <div class="ps-scene">${sceneName ? escapeHtml(sceneName) : 'Lvl ' + c.level}</div>
+        <div class="ps-scene">${clockBadgeHtml()}${sceneName ? escapeHtml(sceneName) : ''}</div>
       </div>
       ${focusMode()
         ? `<button class="ps-exit" onclick="exitStatus()" aria-label="Exit the status screen">Exit ✕</button>`
@@ -250,6 +250,7 @@ function gmStatusHtml() {
   const feed = activityList().slice(0, 4);
   return `
   <div class="gs-bar panel">
+    ${clockPanelHtml()}
     <div class="gs-row">
       <div class="field grow"><label>Scene <span class="sub">(players see this)</span></label>
         <input type="text" value="${escapeAttr(state.settings?.sceneName || '')}" placeholder="e.g. The Great Gate of Kain" onchange="dbWrite('settings/sceneName', this.value)"></div>

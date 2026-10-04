@@ -21,7 +21,7 @@ function blankCombat() {
 let state = {
   campaignName: 'Campaign',
   gmPin: null,
-  settings: { highWindow: 3, digitalRolls: false, combatTab: false, playerLedger: false, playerMagic: false, sceneName: '' },
+  settings: { highWindow: 3, digitalRolls: false, combatTab: false, playerLedger: false, playerMagic: false, clock: 480, timeCooldowns: false, sceneName: '' },
   characters: {},   // id -> character (PCs and NPCs)
   professors: {},   // id -> professor
   clubs: {},        // id -> club / extracurricular
@@ -62,7 +62,7 @@ function normaliseState(data) {
   const s = {
     campaignName: data.campaignName || 'Campaign',
     gmPin: data.gmPin || null,
-    settings: { highWindow: 3, digitalRolls: false, combatTab: false, playerLedger: false, playerMagic: false, sceneName: '', ...(data.settings || {}) },
+    settings: { highWindow: 3, digitalRolls: false, combatTab: false, playerLedger: false, playerMagic: false, clock: 480, timeCooldowns: false, sceneName: '', ...(data.settings || {}) },
   };
   COLLECTIONS.forEach(k => { s[k] = data[k] || {}; });
   const c = { ...blankCombat(), ...(data.combat || {}) };

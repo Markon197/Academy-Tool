@@ -1,0 +1,23 @@
+/* ── world clock ── */
+.gs-clock { display: grid; grid-template-columns: auto 1fr; gap: 12px 20px; align-items: center; padding: 12px 14px; margin-bottom: 12px; border-radius: var(--radius-lg); border: 1px solid var(--border-gold); background: linear-gradient(135deg, #2a2418, var(--surface2)); }
+.gs-clock[data-period="night"] { background: linear-gradient(135deg, #141a30, var(--surface2)); }
+.gs-clock[data-period="dawn"], .gs-clock[data-period="evening"] { background: linear-gradient(135deg, #3a2418, var(--surface2)); }
+.gs-clock[data-period="midday"] { background: linear-gradient(135deg, #3a3418, var(--surface2)); }
+.ck-face { display: flex; align-items: center; gap: 12px; }
+.ck-ico { font-size: 44px; line-height: 1; }
+.ck-time { font-family: var(--font-display); font-size: 40px; line-height: 1; color: #fff; letter-spacing: .04em; }
+.ck-day { font-size: 13px; color: var(--text2); margin-top: 3px; }
+.ck-ctl { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.ck-ctl .btn { min-height: 40px; }
+.ck-ctl select { width: auto; min-width: 130px; }
+.ck-set label { display: inline-flex; align-items: center; gap: 6px; text-transform: none; letter-spacing: 0; font-size: 12px; margin: 0; }
+.ck-in { width: 92px; padding: 6px 8px; }
+.ck-timed { grid-column: 1 / -1; margin: 0; }
+@media (max-width: 700px) { .gs-clock { grid-template-columns: 1fr; } .ck-time { font-size: 34px; } }
+
+/* what players see: just the time of day */
+.clock-badge { display: inline-block; padding: 1px 10px; border-radius: 999px; border: 1px solid var(--border-gold); background: rgba(0,0,0,.25); font-size: .92em; white-space: nowrap; }
+.clock-badge[data-period="night"] { border-color: #5a6ab0; color: #aab6ff; }
+.clock-badge[data-period="dawn"], .clock-badge[data-period="evening"] { border-color: #c98a4a; color: #ffcf9a; }
+.clock-badge[data-period="midday"] { border-color: #e8c454; color: #fff0a8; }
+.ps-scene .clock-badge { margin-right: 6px; }

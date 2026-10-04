@@ -189,7 +189,7 @@ function magicHtml() {
       <header><h3>${s.id}</h3>${s.resource ? `<span class="chip sm school" style="--sc:${s.color}">Resource: ${s.resource}</span>` : ''}</header>
       <p class="magic-blurb">${escapeHtml(s.blurb)}</p>
       <div class="btn-row">
-        <button class="btn small" onclick="browseSchool('skills','${s.id}')" ${nt ? '' : 'disabled'}>Techniques (${nt})</button>
+        ${me ? '' : `<button class="btn small" onclick="browseSchool('skills','${s.id}')" ${nt ? '' : 'disabled'}>Techniques (${nt})</button>`}
         <button class="btn small" onclick="browseSchool('talents','${s.id}')" ${nl ? '' : 'disabled'}>Talents (${nl})</button>
       </div>
       ${s.sections.map((sec, n) => {

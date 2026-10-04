@@ -77,3 +77,11 @@ V=$(date +%Y%m%d%H%M); sed -i -E "s#(src=\"js/[a-z-]+\.js)(\?v=[0-9a-z]+)?\"#\1?
 ```
 
 (It only touches the local `js/` and `css/` references, not the Firebase CDN scripts.)
+
+## World clock
+
+The GM sets the exact in-world time on the Status tab (±15 min / ±1 h / ±4 h, skip to the next dawn/morning/midday/…, long rest, or set an exact day and time).
+Players see only the approximate time of day (Dawn, Morning, Midday, Afternoon, Evening, Night).
+
+**Timed cooldowns** (a GM checkbox, off by default): techniques whose cooldown is measured in hours or days ("Once every 6 hours", "Once per day")
+become ready again by themselves when the clock passes their time. Round-based and per-battle cooldowns are unaffected.

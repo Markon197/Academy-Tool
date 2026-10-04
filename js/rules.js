@@ -131,9 +131,12 @@ function parseRoll(text) {
 //  { rounds, perBattle, perRest, focus, energy, passive, text }
 function parseCooldown(text) {
   const t = (text || '').toLowerCase();
-  const out = { rounds: 0, perBattle: false, perRest: false, focus: 0, energy: 0, passive: false, text: text || '' };
+  const out = { rounds: 0, perBattle: false, perRest: false, hours: 0, focus: 0, energy: 0, passive: false, text: text || '' };
   if (!t) return out;
   if (/passive/.test(t)) out.passive = true;
+  // in-world hours (used by the optional timed cooldowns): "Every 6 hours", "Once per day", "Once per hour"
+  const hh = /(\d+)\s*hours?\b/.exec(t);
+  out.hours = hh ? Number(hh[1]) : /\b(per|every|once a|once an)\s*(day|24)|\bdaily\b/.test(t) ? 24 : /\b(per|every|an)\s*hour\b/.test(t) ? 1 : 0;
   const r = /(\d+)\s*(?:rounds?|turns?)\b/.exec(t) || /\bcd\s*(\d+)/.exec(t);
   if (r) out.rounds = Number(r[1]);
   else if (/1\s*round/.test(t)) out.rounds = 1;
