@@ -154,5 +154,6 @@ function pct(v, max) { if (!max) return 0; return Math.max(0, Math.min(100, Math
 const CHAR_STATUSES = ['Alive', 'Injured', 'Missing', 'Captured', 'Dead', 'Unknown'];
 function statusClass(s) { return 'status-' + String(s || 'Alive').toLowerCase(); }
 
-// ── Factions: a free-text tag on a character (who they answer to). These are just suggestions. ──
-const FACTION_SUGGESTIONS = ['Midnight Archive', 'Order of the Last Flame', 'The First Mother', 'Wardens of the Wall', 'The Gilded Tide', 'Faculty', 'Prefect Corps'];
+// ── Factions: who a character answers to. The main ones from the Empire lore are a dropdown on the
+//    sheet; anything else can be added with "Custom…". ──
+const FACTION_SUGGESTIONS = ['Midnight Archive', 'Order of the Last Flame', 'The First Mother', 'Wardens of the Wall', 'The Gilded Tide', 'The Three Roots', 'The Imperial Council', 'Faculty'];

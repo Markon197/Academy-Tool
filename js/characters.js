@@ -173,6 +173,16 @@ function allFactions() {
   return [...new Set(Object.values(state.characters).map(c => c.faction).filter(Boolean).concat(FACTION_SUGGESTIONS))].sort((a, b) => a.localeCompare(b));
 }
 
+// Faction dropdown: pick one of the main factions, or "Custom…" to type a new one (it then joins the list).
+async function pickFaction(id, sel) {
+  let v = sel.value;
+  if (v === '__custom') {
+    v = (prompt('Faction name:') || '').trim();
+    if (!v) { renderCharacters(); return; }   // cancelled: put the dropdown back
+  }
+  await setField(id, 'faction', v);
+}
+
 // Faction tag (e.g. Midnight Archive)
 function factionTagHtml(c) { return c.faction ? `<span class="tag faction" title="Faction">⚑ ${escapeHtml(c.faction)}</span>` : ''; }
 
@@ -497,7 +507,7 @@ function sheetHtml(c) {
       </div>
       <div class="grid cols-3">
         ${f('Status', statusFieldHtml(c))}
-        ${f('Faction', gm ? `<input type="text" list="faction-list" value="${escapeAttr(c.faction)}" placeholder="e.g. Midnight Archive" onchange="setField('${c.id}','faction',this.value.trim())"><datalist id="faction-list">${allFactions().map(x => `<option value="${escapeAttr(x)}">`).join('')}</datalist>` : `<div>${c.faction ? escapeHtml(c.faction) : '—'}</div>`)}
+        ${f('Faction', gm ? `<select onchange="pickFaction('${c.id}',this)"><option value="">— none —</option>${allFactions().map(x => `<option value="${escapeAttr(x)}" ${c.faction === x ? 'selected' : ''}>${escapeHtml(x)}</option>`).join('')}<option value="__custom">Custom…</option></select>` : `<div>${c.faction ? escapeHtml(c.faction) : '—'}</div>`)}
         ${f('Archetype', gm ? `<select onchange="setField('${c.id}','archetypeId',this.value)"><option value="">— none —</option>${archList.map(a => `<option value="${a.id}" ${a.id === c.archetypeId ? 'selected' : ''}>${escapeHtml(a.name)}</option>`).join('')}</select>` : `<div>${arch ? escapeHtml(arch.name) : '—'}</div>`)}
         ${gm && !c.isNPC ? f('Player PIN (login)', `<input type="text" maxlength="8" value="${escapeAttr(c.pin)}" onchange="setField('${c.id}','pin',this.value)">`) : ''}
       </div>
