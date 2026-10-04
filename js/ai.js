@@ -33,6 +33,7 @@ Rules:
 - Prefer appending to existing notes over replacing anything. Keep the GM's wording and details. Never invent facts, names or numbers.
 - Secrets, plans and spoilers go in gmNotes; things the player knows go in notes.
 - Places, factions, events and lore go in the World via upsert_world_entry (append to an existing entry when one matches).
+- Abilities come in exactly two kinds. A TECHNIQUE is something the character actively chooses to use (it has a cooldown, a cost, a "once per session/combat" limit, or a roll). A TALENT is always on: a standing bonus or effect. Sort every ability into one of these two; never invent a third category.
 - Only use character names from the roster, exactly as listed.
 - If the request is ambiguous or a needed detail is missing, ask ONE short question and call no tools.
 - After calling tools, write one short sentence summarising what you propose. The GM approves every change before it is applied.`;
@@ -42,9 +43,9 @@ const AI_TOOLS = [
   { name: 'append_character_note', description: 'Append text to a character’s Notes (player-visible) or GM notes (GM only).', input_schema: { type: 'object', properties: { character: CHAR_PROP, field: { type: 'string', enum: ['notes', 'gmNotes'] }, text: { type: 'string' } }, required: ['character', 'field', 'text'] } },
   { name: 'add_relationship', description: 'Add a row to a character’s Relationships list.', input_schema: { type: 'object', properties: { character: CHAR_PROP, who: { type: 'string' }, note: { type: 'string' } }, required: ['character', 'who', 'note'] } },
   { name: 'add_inventory_item', description: 'Give a character an item.', input_schema: { type: 'object', properties: { character: CHAR_PROP, name: { type: 'string' }, effect: { type: 'string' }, description: { type: 'string' } }, required: ['character', 'name'] } },
-  { name: 'add_sheet_row', description: 'Add a passive talent, active talent or condition to a character sheet.', input_schema: { type: 'object', properties: { character: CHAR_PROP, section: { type: 'string', enum: ['passives', 'activeTalents', 'sheetConditions'] }, name: { type: 'string' }, effect: { type: 'string' }, level: { type: 'string', description: 'Bonus or level shown in the L column (passives only)' } }, required: ['character', 'section', 'name'] } },
+  { name: 'add_sheet_row', description: 'Add a TALENT (always-on bonus or standing effect — section "passives") or a condition (a flaw or drawback — section "sheetConditions") to a character sheet. Anything the character actively uses is a technique instead: use add_technique.', input_schema: { type: 'object', properties: { character: CHAR_PROP, section: { type: 'string', enum: ['passives', 'sheetConditions'] }, name: { type: 'string' }, effect: { type: 'string' }, level: { type: 'string', description: 'Bonus shown in the Bonus column, e.g. "+3" (talents only)' } }, required: ['character', 'section', 'name'] } },
   { name: 'set_quick_info', description: 'Set one Quick info field on a character.', input_schema: { type: 'object', properties: { character: CHAR_PROP, field: { type: 'string', enum: ['fullName', 'age', 'height', 'race', 'family', 'other'] }, value: { type: 'string' } }, required: ['character', 'field', 'value'] } },
-  { name: 'add_technique', description: 'Add a technique to a character.', input_schema: { type: 'object', properties: { character: CHAR_PROP, name: { type: 'string' }, roll: { type: 'string', description: 'e.g. "Soul + Presence"' }, bonus: { type: 'number' }, cooldown: { type: 'string', description: 'e.g. "CD 2", "Once per combat", "Spend 1 Focus"' }, origin: { type: 'string' }, effect: { type: 'string' } }, required: ['character', 'name'] } },
+  { name: 'add_technique', description: 'Add a TECHNIQUE: something the character actively chooses to use — it has a cooldown, a cost, a "once per session/combat" limit, or a roll. (Always-on bonuses are talents instead: use add_sheet_row.)', input_schema: { type: 'object', properties: { character: CHAR_PROP, name: { type: 'string' }, roll: { type: 'string', description: 'e.g. "Soul + Presence"' }, bonus: { type: 'number' }, cooldown: { type: 'string', description: 'e.g. "CD 2", "Once per combat", "Spend 1 Focus"' }, origin: { type: 'string' }, effect: { type: 'string' } }, required: ['character', 'name'] } },
   { name: 'adjust_counter', description: 'Change a character counter: life, focus, energy, stress, ascension, ruin, detention (hours) or xp.', input_schema: { type: 'object', properties: { character: CHAR_PROP, field: { type: 'string', enum: ['life', 'focus', 'energy', 'stress', 'ascension', 'ruin', 'detention', 'xp'] }, mode: { type: 'string', enum: ['set', 'add'] }, value: { type: 'number' } }, required: ['character', 'field', 'mode', 'value'] } },
   { name: 'set_character_status', description: 'Set a character story status tag (Alive, Injured, Missing, Captured, Dead, Unknown).', input_schema: { type: 'object', properties: { character: CHAR_PROP, status: { type: 'string', enum: ['Alive', 'Injured', 'Missing', 'Captured', 'Dead', 'Unknown'] } }, required: ['character', 'status'] } },
   { name: 'set_character_faction', description: 'Set which faction a character belongs to (e.g. Midnight Archive). Empty string clears it.', input_schema: { type: 'object', properties: { character: CHAR_PROP, faction: { type: 'string' } }, required: ['character', 'faction'] } },
@@ -65,8 +66,7 @@ function aiCompactChar(c) {
     clubs: (c.clubIds || []).map(id => state.clubs[id]?.name).filter(Boolean),
     quickInfo: c.quick, discipline: c.discipline,
     techniques: charTechniques(c).map(t => ({ name: t.name, roll: t.roll, bonus: t.bonus || 0, cooldown: t.cooldownCost, effect: t.effect })),
-    passiveTalents: list(c.passives).map(r => ({ name: r.name, bonus: r.level, effect: r.effect })),
-    activeTalents: list(c.activeTalents).map(r => ({ name: r.name, effect: r.effect })),
+    talents: list(c.passives).map(r => ({ name: r.name, bonus: r.level, effect: r.effect })),
     conditions: list(c.sheetConditions).map(r => ({ name: r.name, effect: r.effect })),
     relationships: list(c.relationships).map(r => ({ who: r.name, note: r.note })),
     inventory: Object.values(c.inventory || {}).map(i => ({ name: i.name, effect: i.effect })),
@@ -241,9 +241,9 @@ function aiPlanAction(tu) {
       if (c) act.run = () => { const id = uid(); return dbWrite(`characters/${c.id}/inventory/${id}`, { id, name: i.name, effect: i.effect || '', description: i.description || '', type: '', rarity: '' }); };
       break; }
     case 'add_sheet_row': {
-      const c = needChar(); const label = { passives: 'passive talent', activeTalents: 'active talent', sheetConditions: 'condition' }[i.section] || i.section;
+      const c = needChar(); const label = { passives: 'talent', sheetConditions: 'condition' }[i.section] || i.section;
       act.text = `${c ? c.name : i.character} — ${label}: ${i.name}${i.effect ? ' — ' + clip(i.effect, 100) : ''}`;
-      if (!['passives', 'activeTalents', 'sheetConditions'].includes(i.section)) act.error = 'unknown section';
+      if (!['passives', 'sheetConditions'].includes(i.section)) act.error = 'unknown section';
       else if (c) act.run = () => row(c, i.section, { name: i.name, effect: i.effect || '', level: i.level || '' });
       break; }
     case 'set_quick_info': {

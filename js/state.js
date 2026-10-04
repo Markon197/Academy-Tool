@@ -84,7 +84,13 @@ function normaliseCharacter(c) {
   c.cooldowns = c.cooldowns || {};
   c.inventory = c.inventory || {};
   // free-form sheet sections (id-keyed maps so simultaneous edits don't clobber each other)
-  ['relationships', 'passives', 'activeTalents', 'sheetConditions', 'quick', 'discipline'].forEach(k => { c[k] = c[k] || {}; });
+  ['relationships', 'passives', 'sheetConditions', 'quick', 'discipline'].forEach(k => { c[k] = c[k] || {}; });
+  // "Active talents" no longer exist as a separate list: anything left in the old field is shown as a technique.
+  Object.values(c.activeTalents || {}).forEach(r => {
+    const id = 'tq_' + r.id;
+    if (!c.techniques[id]) c.techniques[id] = { id, name: r.name || '', origin: '', cooldownCost: '', levelRequirement: 0, roll: '', bonus: 0, effect: r.effect || '' };
+  });
+  c.activeTalents = {};
   c.xp = Number(c.xp) || 0; c.xpMax = Number(c.xpMax) || 0; c.background = c.background || '';
   c.status = c.status || 'Alive';
   c.faction = c.faction || '';

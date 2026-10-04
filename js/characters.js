@@ -55,7 +55,9 @@ function rollTagText(c, t) {
   return tn === null ? (t.roll || '') : `${t.roll}${t.bonus ? ` +${t.bonus}` : ''} · TN ${tn}`;
 }
 
-// ── Free-form sheet sections: Relationships, Passive/Active talents, Conditions ──
+// ── Free-form sheet sections: Talents (stored as `passives`), Conditions, Relationships ──
+// Two buckets only: a TECHNIQUE is something you actively use (cooldown, cost, once per session…);
+// a TALENT is always on (a bonus or a standing effect).
 // cols: [{ k, l, w }] key, label, relative width. GM edits inline; players read.
 function rowListHtml(c, field, cols) {
   const gm = session.role === 'gm';
@@ -395,12 +397,16 @@ function talentsHtml(c) {
   const owned = Object.keys(ranks).filter(id => ranks[id] > 0 && state.talents[id]);
   const gm = session.role === 'gm';
   const avail = Object.values(state.talents).filter(t => !(ranks[t.id] > 0)).sort((a, b) => a.name.localeCompare(b.name));
+  // One list of talents: the ones written on the sheet (name · bonus · effect), then any taken from the curriculum.
+  const sheetRows = rowListHtml(c, 'passives', [{ k: 'name', l: 'Talent', w: 2 }, { k: 'level', l: 'Bonus', w: 0.6 }, { k: 'effect', l: 'Effect', w: 4 }]);
   return `
+  ${sheetRows}
+  ${owned.length ? '<div class="sub" style="margin:10px 0 4px">From the curriculum</div>' : ''}
   ${owned.length ? owned.map(id => {
     const t = state.talents[id], max = (t.levelRequirements || [1]).length;
     return `<div class="tech"><div class="tech-main"><strong>${escapeHtml(t.name)}</strong> <span class="tag">${escapeHtml(t.type || 'Talent')}</span>${max > 1 ? `<span class="tag">Rank ${ranks[id]}/${max}</span>` : ''}<div class="desc">${escapeHtml(t.description)}</div></div>
       ${gm ? `<div class="tech-btns"><button class="icon-btn" onclick="adjustRank('${c.id}','${id}',-1)">−</button><button class="icon-btn" onclick="adjustRank('${c.id}','${id}',1,${max})">+</button></div>` : ''}</div>`;
-  }).join('') : '<div class="empty-state">No talents taken.</div>'}
+  }).join('') : ''}
   ${gm ? `<div class="inline" style="margin-top:8px"><select id="add-talent-${c.id}"><option value="">— add a talent —</option>${avail.map(t => `<option value="${t.id}">${escapeHtml(t.name)} (Lvl ${(t.levelRequirements || [1]).join('/')})</option>`).join('')}</select><button class="btn small" onclick="addTalent('${c.id}')">+ Add</button></div>` : ''}`;
 }
 async function addTalent(charId) {
@@ -535,8 +541,8 @@ function sheetHtml(c) {
     </div>
 
     <div class="grid cols-2">
-      <div class="panel"><div class="panel-title">Techniques</div>${techniquesHtml(c)}</div>
-      <div class="panel"><div class="panel-title">Talents</div>${talentsHtml(c)}</div>
+      <div class="panel"><div class="panel-title">Techniques <span class="sub">active — things you choose to use</span></div>${techniquesHtml(c)}</div>
+      <div class="panel"><div class="panel-title">Talents <span class="sub">passive — always on</span></div>${talentsHtml(c)}</div>
     </div>
 
     <div class="grid cols-2">
@@ -546,11 +552,6 @@ function sheetHtml(c) {
           : ((c.discipline || {})[k] ? `<div class="origin"><strong>${l}:</strong> ${escapeHtml(c.discipline[k])}</div>` : '')).join('')}
         ${originsHtml(c)}</div>
       <div class="panel"><div class="panel-title">Inventory</div>${inventoryHtml(c)}</div>
-    </div>
-
-    <div class="grid cols-2">
-      <div class="panel"><div class="panel-title">Passive talents</div>${rowListHtml(c, 'passives', [{ k: 'name', l: 'Talent', w: 2 }, { k: 'level', l: 'L', w: 0.5 }, { k: 'effect', l: 'Effect', w: 4 }])}</div>
-      <div class="panel"><div class="panel-title">Active talents</div>${rowListHtml(c, 'activeTalents', [{ k: 'name', l: 'Talent', w: 2 }, { k: 'effect', l: 'Effect', w: 4 }])}</div>
     </div>
 
     <div class="grid cols-2">
